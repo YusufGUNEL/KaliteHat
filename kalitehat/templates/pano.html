@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block baslik %}Pano{% endblock %}
+{% block icerik %}
+<h1>Kalite panosu</h1>
+<p class="alt">ERP'den gelen iş emirleri, muayene sonuçları ve açık uygunsuzluklar tek yerde.</p>
+
+<div class="izgara i4">
+  <div class="kart kpi"><a href="{{ url_for('web.is_emirleri', durum='FAI_BEKLIYOR') }}">
+    <div class="deger">{{ sayilar.get('FAI_BEKLIYOR', 0) }}</div><div class="etiket">İlk parça onayı bekleyen</div></a></div>
+  <div class="kart kpi"><a href="{{ url_for('web.is_emirleri', durum='KARANTINA') }}">
+    <div class="deger {{ 'kirmizi' if sayilar.get('KARANTINA') }}">{{ sayilar.get('KARANTINA', 0) }}</div><div class="etiket">Karantinadaki lot</div></a></div>
+  <div class="kart kpi"><a href="{{ url_for('web.uygunsuzluklar') }}">
+    <div class="deger {{ 'kirmizi' if acik_dof }}">{{ acik_dof }}</div><div class="etiket">Açık uygunsuzluk (DÖF)</div></a></div>
+  <div class="kart kpi">
+    <div class="deger">%{{ '%.1f'|format(ret_orani) }}</div><div class="etiket">Muayene ret oranı · son 30 gün ({{ muayene_sayisi }} muayene)</div></div>
+</div>
+
+<div class="izgara i2">
+  <div class="kart">
+    <h2>Uygunsuzluk Pareto'su (karakteristik bazında)</h2>
+    {% if pareto %}<canvas id="pareto" height="150"></canvas>{% else %}<p class="alt">Henüz uygunsuzluk yok.</p>{% endif %}
+  </div>
+  <div class="kart">
+    <h2>Kritik karakteristiklerde proses yeterliliği</h2>
+    <table>
+      <tr><th>Parça · karakteristik</th><th class="sayi">n</th><th class="sayi">Cp</th><th class="sayi">Cpk</th><th></th></tr>
+      {% for k, y in yetenekler %}
+      <tr>
+        <td><a href="{{ url_for('web.spc', kid=k.id) }}">{{ k.parca_kod }} · {{ k.ad }}</a><br><span class="alt mono">{{ k|tol }} {{ k.birim }}</span></td>
+        {% if y %}
+          <td class="sayi">{{ y.n }}</td><td class="sayi">{{ '%.2f'|format(y.cp) }}</td>
+          <td class="sayi {{ 'kirmizi' if y.cpk < 1.33 }}">{{ '%.2f'|format(y.cpk) }}</td>
+          <td>{% if y.cpk < 1 %}<span class="rozet r-RED">yetersiz</span>{% elif y.cpk < 1.33 %}<span class="rozet r-UYARI">sınırda</span>{% else %}<span class="rozet r-UYGUN">yeterli</span>{% endif %}</td>
+        {% else %}<td colspan="4" class="alt">yetersiz veri</td>{% endif %}
+      </tr>
+      {% endfor %}
+    </table>
+    <p class="alt" style="margin:10px 0 0">Hedef Cpk ≥ 1,33. Altındaki karakteristikler tolerans dışına çıkmadan önce müdahale ister.</p>
+  </div>
+</div>
+
+<div class="kart">
+  <h2>Son açık uygunsuzluklar</h2>
+  {% if son_ncr %}
+  <table>
+    <tr><th>No</th><th>İş emri</th><th>Açıklama</th><th>Açılış</th></tr>
+    {% for u in son_ncr %}
+    <tr><td><a href="{{ url_for('web.uygunsuzluk', nid=u.id) }}">NCR-{{ '%04d'|format(u.id) }}</a></td>
+      <td><a href="{{ url_for('web.is_emri', no=u.ie_no) }}">{{ u.ie_no }}</a></td><td>{{ u.aciklama }}</td><td class="mono">{{ u.acilis }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="alt">Açık uygunsuzluk yok.</p>{% endif %}
+</div>
+{% endblock %}
+{% block js %}
+{% if pareto %}
+<script src="{{ url_for('static', filename='chart.umd.min.js') }}"></script>
+<script>
+new Chart(document.getElementById('pareto'), {
+  data: {
+    labels: {{ pareto|map(attribute='etiket')|list|tojson }},
+    datasets: [
+      { type: 'bar', label: 'Adet', data: {{ pareto|map(attribute='n')|list|tojson }}, backgroundColor: '#1f5f4a', yAxisID: 'y' },
+      { type: 'line', label: 'Birikimli %', data: {{ birikimli|tojson }}, borderColor: '#b3261e', backgroundColor: '#b3261e', yAxisID: 'y2', tension: 0 }
+    ]
+  },
+  options: {
+    plugins: { legend: { position: 'bottom' } },
+    scales: {
+      y: { beginAtZero: true, ticks: { precision: 0 } },
+      y2: { position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%' } }
+    }
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block baslik %}İzlenebilirlik{% endblock %}
+{% block icerik %}
+<h1>İzlenebilirlik</h1>
+<p class="alt">Müşteri bir lot numarasıyla geldiğinde: hangi iş emri, hangi parça revizyonu, kim, hangi aletle, ne zaman, ne ölçtü.</p>
+<form class="kart satir">
+  <input name="q" value="{{ q }}" placeholder="Lot ya da iş emri no" autofocus style="width:260px">
+  <button class="btn">Ara</button>
+</form>
+{% for ie, ol in sonuc %}
+<div class="kart">
+  <h2><a href="{{ url_for('web.is_emri', no=ie.no) }}" class="mono">{{ ie.no }}</a> · lot <span class="mono">{{ ie.lot }}</span>
+    · {{ ie.parca_kod }} Rev. {{ ie.revizyon }} <span class="rozet r-{{ ie.durum }}">{{ DURUM_ADI[ie.durum] }}</span></h2>
+  <table>
+    <tr><th>Muayene</th><th>Personel</th><th>Tarih</th><th>Karakteristik</th><th class="sayi">Değer</th><th>Alet</th><th>Alet kal. bitişi</th></tr>
+    {% for o in ol %}
+    <tr><td>{{ o.numune_no }} · {{ TUR_ADI[o.tur] }}</td><td>{{ o.personel }}</td><td class="mono">{{ o.tarih }}</td>
+      <td>{{ o.kno }}. {{ o.kad }}</td><td class="sayi {{ 'kirmizi' if not o.uygun }}">{{ '%g'|format(o.deger) }}</td>
+      <td class="mono">{{ o.alet_kod }}</td><td class="mono">{{ o.kalibrasyon_bitis }}</td></tr>
+    {% else %}<tr><td colspan="7" class="alt">Bu lotta muayene yok.</td></tr>{% endfor %}
+  </table>
+</div>
+{% else %}{% if q %}<p class="alt">Sonuç yok.</p>{% endif %}{% endfor %}
+{% endblock %}

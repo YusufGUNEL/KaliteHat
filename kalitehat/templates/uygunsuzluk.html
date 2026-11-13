@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block baslik %}NCR-{{ '%04d'|format(u.id) }}{% endblock %}
+{% block icerik %}
+<h1>NCR-{{ '%04d'|format(u.id) }} <span class="rozet r-{{ u.durum }}">{{ u.durum }}</span></h1>
+<p class="alt"><a href="{{ url_for('web.is_emri', no=u.ie_no) }}" class="mono">{{ u.ie_no }}</a> · lot <span class="mono">{{ u.lot }}</span> · {{ u.adet }} adet</p>
+
+<div class="kart">
+  <h2>Tespit</h2>
+  <p style="margin:0 0 6px">{{ u.aciklama }}</p>
+  <p class="alt" style="margin:0">{{ TUR_ADI[u.tur] }} muayenesinde {{ u.personel }} ölçtü · alet <span class="mono">{{ u.alet_kod }}</span> · {{ u.acilis }}</p>
+</div>
+
+{% if u.durum == 'ACIK' %}
+{% if hata %}<div class="flash hata"><b>Kapatılmadı:</b> {{ hata }}</div>{% endif %}
+<form method="post" class="kart">
+  <h2>Düzeltici / önleyici faaliyet</h2>
+  <label>Kök neden</label>
+  <textarea name="kok_neden" placeholder="Örn. takım aşınması, yanlış ofset, bağlama hatası, malzeme">{{ form.get('kok_neden', '') }}</textarea>
+  <label>Düzeltici faaliyet</label>
+  <textarea name="aksiyon" placeholder="Tekrarı önlemek için ne yapıldı">{{ form.get('aksiyon', '') }}</textarea>
+  <div class="satir">
+    <div><label>Sorumlu</label><input name="sorumlu" value="{{ form.get('sorumlu', '') }}"></div>
+    <div><label>Ürün kararı</label>
+      <select name="karar">
+        <option value="">Seç</option>
+        {% for kod, ad in KARAR_ADI.items() %}<option value="{{ kod }}" {{ 'selected' if form.get('karar') == kod }}>{{ ad }}</option>{% endfor %}
+      </select></div>
+    <div><label>Hurda adedi</label><input name="hurda_adet" type="number" min="0" max="{{ u.adet - u.ie_hurda }}" value="{{ form.get('hurda_adet', '0') }}" style="width:90px"></div>
+  </div>
+  <div style="margin-top:16px"><button class="btn">DÖF'ü kapat</button></div>
+</form>
+{% else %}
+<div class="kart">
+  <h2>Kapanış</h2>
+  <div class="bilgi" style="grid-template-columns: 1fr 1fr">
+    <div><span>Kök neden</span><b>{{ u.kok_neden }}</b></div>
+    <div><span>Düzeltici faaliyet</span><b>{{ u.aksiyon }}</b></div>
+    <div><span>Sorumlu</span><b>{{ u.sorumlu }}</b></div>
+    <div><span>Karar</span><b>{{ KARAR_ADI.get(u.karar) }}{% if u.hurda_adet %} · {{ u.hurda_adet }} adet hurda{% endif %}</b></div>
+    <div><span>Kapanış</span><b class="mono">{{ u.kapanis }}</b></div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

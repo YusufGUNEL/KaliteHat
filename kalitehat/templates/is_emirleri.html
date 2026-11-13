@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block baslik %}İş emirleri{% endblock %}
+{% block icerik %}
+<h1>İş emirleri</h1>
+<p class="alt">ERP'den gelen iş emirleri. Her lot ilk parça onayı → proses → final muayene sırasıyla ilerler.</p>
+
+<div class="kart">
+  <h2>ERP'den iş emri al</h2>
+  <form method="post" action="{{ url_for('web.ice_aktar') }}" enctype="multipart/form-data" class="satir">
+    <input type="file" name="dosya" accept=".csv,.xlsx">
+    <button class="btn">İçe aktar</button>
+    <span class="alt" style="margin:0">CSV ya da Excel. Sütunlar: <span class="mono">is_emri_no, parca_kodu, lot, adet, termin</span>.
+      Aynı akış <span class="mono">POST /api/is-emirleri</span> ile de çalışır.</span>
+  </form>
+</div>
+
+<div class="satir filtre" style="margin-bottom:12px">
+  <a href="{{ url_for('web.is_emirleri') }}" class="{{ 'aktif' if not secili }}">Tümü</a>
+  {% for kod, ad in DURUM_ADI.items() %}<a href="{{ url_for('web.is_emirleri', durum=kod) }}" class="{{ 'aktif' if secili == kod }}">{{ ad }}</a>{% endfor %}
+</div>
+
+<div class="kart">
+  <table>
+    <tr><th>İş emri</th><th>Parça</th><th>Lot</th><th class="sayi">Adet</th><th class="sayi">Hurda</th><th>Termin</th><th>Kaynak</th><th>Durum</th></tr>
+    {% for r in rows %}
+    <tr>
+      <td><a href="{{ url_for('web.is_emri', no=r.no) }}" class="mono">{{ r.no }}</a></td>
+      <td>{{ r.parca_kod }} · {{ r.parca_ad }}</td>
+      <td class="mono">{{ r.lot }}</td>
+      <td class="sayi">{{ r.adet }}</td>
+      <td class="sayi {{ 'kirmizi' if r.hurda_adet }}">{{ r.hurda_adet }}</td>
+      <td class="mono">{{ r.termin or '–' }}</td>
+      <td class="alt" style="margin:0">{{ r.kaynak }}</td>
+      <td><span class="rozet r-{{ r.durum }}">{{ DURUM_ADI[r.durum] }}</span>{% if r.acik %} <span class="rozet r-ACIK">{{ r.acik }} açık NCR</span>{% endif %}</td>
+    </tr>
+    {% else %}<tr><td colspan="8" class="alt">Kayıt yok.</td></tr>{% endfor %}
+  </table>
+</div>
+{% endblock %}

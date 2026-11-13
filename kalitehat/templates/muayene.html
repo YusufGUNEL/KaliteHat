@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block baslik %}{{ TUR_ADI.get(tur, tur) }} · {{ ie.no }}{% endblock %}
+{% block icerik %}
+<h1>{{ TUR_ADI.get(tur, tur) }} muayenesi</h1>
+<p class="alt"><a href="{{ url_for('web.is_emri', no=ie.no) }}" class="mono">{{ ie.no }}</a> · {{ ie.parca_kod }} {{ ie.parca_ad }} · Rev. {{ ie.revizyon }} · lot <span class="mono">{{ ie.lot }}</span></p>
+
+{% if hata %}<div class="flash hata"><b>Kaydedilmedi:</b> {{ hata }}</div>{% endif %}
+
+<form method="post" class="kart">
+  <table>
+    <tr><th>#</th><th>Karakteristik</th><th class="sayi">Nominal / tolerans</th><th class="sayi">Alt</th><th class="sayi">Üst</th><th>Ölçülen</th><th>Ölçüm aleti</th><th></th></tr>
+    {% for k in karakteristikler %}
+    <tr>
+      <td class="mono">{{ k.no }}</td>
+      <td>{{ k.ad }} {% if k.kritik %}<span class="rozet r-UYARI">kritik</span>{% endif %}</td>
+      <td class="sayi">{{ k|tol }} {{ k.birim }}</td>
+      <td class="sayi alt-sinir">{{ '%g'|format(k.nominal + k.alt_sapma) }}</td>
+      <td class="sayi ust-sinir">{{ '%g'|format(k.nominal + k.ust_sapma) }}</td>
+      <td><input class="olcu" name="deger_{{ k.id }}" value="{{ form.get('deger_' ~ k.id, '') }}" inputmode="decimal" autocomplete="off" required
+           data-alt="{{ k.nominal + k.alt_sapma }}" data-ust="{{ k.nominal + k.ust_sapma }}"></td>
+      <td><select name="alet_{{ k.id }}" required>
+        <option value="">{{ k.alet_tipi }} seç</option>
+        {% for a in aletler.get(k.alet_tipi, []) %}
+          {% set gecmis = a.kalibrasyon_bitis < bugun %}
+          <option value="{{ a.id }}" {{ 'selected' if form.get('alet_' ~ k.id) == a.id|string }}>{{ a.kod }} · {{ a.ad }}{{ ' · KAL. GEÇMİŞ' if gecmis }}</option>
+        {% endfor %}
+      </select></td>
+      <td class="durum"></td>
+    </tr>
+    {% endfor %}
+  </table>
+  <div class="satir" style="margin-top:14px">
+    <label style="margin:0">Muayeneyi yapan</label>
+    <input name="personel" value="{{ form.get('personel', '') }}" required placeholder="Ad Soyad">
+    <button class="btn">Kaydet</button>
+    <a class="btn ikincil" href="{{ url_for('web.is_emri', no=ie.no) }}">Vazgeç</a>
+  </div>
+  <p class="alt" style="margin:12px 0 0">Tolerans dışı her ölçüm otomatik uygunsuzluk kaydı açar ve lotu karantinaya alır.
+    Kalibrasyonu geçmiş ya da kontrol planındaki tipe uymayan aletle ölçüm kaydedilmez.</p>
+</form>
+{% endblock %}
+{% block js %}
+<script>
+document.querySelectorAll('input.olcu').forEach(inp => {
+  const goster = () => {
+    const td = inp.closest('tr').querySelector('.durum');
+    const v = parseFloat(inp.value.replace(',', '.'));
+    if (isNaN(v)) { td.innerHTML = ''; return; }
+    const ok = v >= parseFloat(inp.dataset.alt) - 1e-9 && v <= parseFloat(inp.dataset.ust) + 1e-9;
+    td.innerHTML = ok ? '<span class="rozet r-UYGUN">uygun</span>' : '<span class="rozet r-RED">tolerans dışı</span>';
+  };
+  inp.addEventListener('input', goster); goster();
+});
+</script>
+{% endblock %}

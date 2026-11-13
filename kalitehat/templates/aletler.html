@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block baslik %}Ölçüm aletleri{% endblock %}
+{% block icerik %}
+<h1>Ölçüm aletleri ve kalibrasyon</h1>
+<p class="alt">Kalibrasyonu geçmiş alet muayene formunda görünür ama kayıt sırasında reddedilir.</p>
+<div class="kart">
+  <table>
+    <tr><th>Kod</th><th>Alet</th><th>Tip</th><th>Kalibrasyon bitişi</th><th class="sayi">Ölçüm sayısı</th><th>Durum</th></tr>
+    {% for a in rows %}
+    {% set gecmis = a.kalibrasyon_bitis < bugun %}
+    <tr><td class="mono">{{ a.kod }}</td><td>{{ a.ad }}</td><td>{{ a.tip }}</td>
+      <td class="mono {{ 'kirmizi' if gecmis }}">{{ a.kalibrasyon_bitis }}</td><td class="sayi">{{ a.kullanim }}</td>
+      <td>{% if gecmis %}<span class="rozet r-RED">kullanım dışı</span>{% else %}<span class="rozet r-UYGUN">geçerli</span>{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

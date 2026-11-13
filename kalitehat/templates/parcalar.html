@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block baslik %}Kontrol planları{% endblock %}
+{% block icerik %}
+<h1>Kontrol planları</h1>
+<p class="alt">Her parça için teknik resimden gelen ölçülecek karakteristikler. Muayene formu buradan oluşur.</p>
+{% for p, ks in rows %}
+<div class="kart">
+  <h2><span class="mono">{{ p.kod }}</span> · {{ p.ad }} <span class="alt">· Rev. {{ p.revizyon }} · {{ p.malzeme }}</span></h2>
+  <table>
+    <tr><th>#</th><th>Karakteristik</th><th class="sayi">Nominal / tolerans</th><th class="sayi">Alt sınır</th><th class="sayi">Üst sınır</th><th>Alet tipi</th><th></th></tr>
+    {% for k in ks %}
+    <tr><td class="mono">{{ k.no }}</td><td>{{ k.ad }}</td><td class="sayi">{{ k|tol }} {{ k.birim }}</td>
+      <td class="sayi">{{ '%g'|format(k.nominal + k.alt_sapma) }}</td><td class="sayi">{{ '%g'|format(k.nominal + k.ust_sapma) }}</td>
+      <td>{{ k.alet_tipi }}</td>
+      <td>{% if k.kritik %}<span class="rozet r-UYARI">kritik</span> <a href="{{ url_for('web.spc', kid=k.id) }}">SPC</a>{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endfor %}
+{% endblock %}

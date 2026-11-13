@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block baslik %}SPC · {{ k.ad }}{% endblock %}
+{% block icerik %}
+<h1>{{ k.parca_kod }} · {{ k.ad }}</h1>
+<p class="alt">{{ k.parca_ad }} · <span class="mono">{{ k|tol }} {{ k.birim }}</span> · {{ k.alet_tipi }} ile ölçülür</p>
+
+<div class="izgara i4">
+  <div class="kart kpi"><div class="deger">{{ y.n if y else rows|length }}</div><div class="etiket">Ölçüm</div></div>
+  <div class="kart kpi"><div class="deger mono">{{ '%.4f'|format(y.ort) if y else '–' }}</div><div class="etiket">Ortalama · nominal {{ '%g'|format(k.nominal) }}</div></div>
+  <div class="kart kpi"><div class="deger">{{ '%.2f'|format(y.cp) if y else '–' }}</div><div class="etiket">Cp · tolerans / proses yayılımı</div></div>
+  <div class="kart kpi"><div class="deger {{ 'kirmizi' if y and y.cpk < 1.33 }}">{{ '%.2f'|format(y.cpk) if y else '–' }}</div><div class="etiket">Cpk · merkezlenme dahil</div></div>
+</div>
+
+<div class="kart">
+  <h2>Kontrol grafiği (tekil değerler)</h2>
+  {% if y %}<canvas id="grafik" height="110"></canvas>
+  <p class="alt" style="margin:10px 0 0">Kesik çizgiler: tolerans sınırları. Noktalı çizgiler: ortalama ± 3σ (prosesin doğal yayılımı).
+    {% if y.cp - y.cpk > 0.3 %}<b>Cp ile Cpk arasındaki fark büyük: proses merkezden kaymış, ofset ayarı ilk bakılacak yer.</b>{% endif %}</p>
+  {% else %}<p class="alt">Grafik için en az 2 farklı ölçüm gerekiyor.</p>{% endif %}
+</div>
+{% endblock %}
+{% block js %}
+{% if y %}
+<script src="{{ url_for('static', filename='chart.umd.min.js') }}"></script>
+<script>
+const v = {{ rows|map(attribute='deger')|list|tojson }};
+const etiket = {{ rows|map(attribute='lot')|list|tojson }};
+const n = v.length, cizgi = (d, c, dash) => ({ type: 'line', data: Array(n).fill(d), borderColor: c, borderDash: dash, pointRadius: 0, borderWidth: 1.5 });
+new Chart(document.getElementById('grafik'), {
+  data: {
+    labels: etiket,
+    datasets: [
+      { type: 'line', label: 'Ölçüm', data: v, borderColor: '#1d2320', borderWidth: 1, tension: 0,
+        pointBackgroundColor: v.map(x => (x < {{ alt }} - 1e-9 || x > {{ ust }} + 1e-9) ? '#b3261e' : '#1f5f4a'), pointRadius: 3 },
+      Object.assign(cizgi({{ ust }}, '#b3261e', [6, 4]), { label: 'Üst tolerans' }),
+      Object.assign(cizgi({{ alt }}, '#b3261e', [6, 4]), { label: 'Alt tolerans' }),
+      Object.assign(cizgi({{ y.ort + 3 * y.s }}, '#24508f', [2, 3]), { label: 'Ort + 3σ' }),
+      Object.assign(cizgi({{ y.ort - 3 * y.s }}, '#24508f', [2, 3]), { label: 'Ort − 3σ' }),
+      Object.assign(cizgi({{ y.ort }}, '#66706a', []), { label: 'Ortalama' })
+    ]
+  },
+  options: { plugins: { legend: { position: 'bottom' } }, scales: { x: { ticks: { maxTicksLimit: 12 } } } }
+});
+</script>
+{% endif %}
+{% endblock %}
