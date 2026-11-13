@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block baslik %}Denetim izi{% endblock %}
+{% block icerik %}
+<div class="ust">
+  <div>
+    <h1>Denetim izi</h1>
+    <div class="alt-baslik">Kim, ne zaman, neyi değiştirdi. Kayıtlar yalnız eklenir; düzeltilmez, silinmez (kayıtların kontrolü).</div>
+  </div>
+</div>
+<section class="pafta">
+  <table>
+    <thead><tr><th>Zaman</th><th>Kullanıcı</th><th>Eylem</th><th>Kayıt</th><th>Ayrıntı</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr><td class="mono ikincil" style="white-space:nowrap">{{ r.zaman }}</td><td>{{ r.kullanici }}</td><td class="mono">{{ r.eylem }}</td>
+      <td><span class="ikincil">{{ r.varlik }}</span> <span class="mono">{{ r.varlik_id|truncate(40) }}</span></td>
+      <td class="ikincil">{% if r.ayrinti %}{% for a, d in r.ayrinti.items() %}{{ a }}: <span class="mono">{{ d }}</span>{{ ' · ' if not loop.last }}{% endfor %}{% endif %}</td></tr>
+    {% else %}<tr><td colspan="5" class="bos">Kayıt yok.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

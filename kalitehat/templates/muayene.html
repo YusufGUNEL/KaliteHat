@@ -1,55 +1,70 @@
 {% extends "base.html" %}
-{% block baslik %}{{ TUR_ADI.get(tur, tur) }} · {{ ie.no }}{% endblock %}
+{% from "_makrolar.html" import lot, etiket with context %}
+{% block baslik %}{{ TUR_ADI[tur] }} · {{ ie.no }}{% endblock %}
 {% block icerik %}
-<h1>{{ TUR_ADI.get(tur, tur) }} muayenesi</h1>
-<p class="alt"><a href="{{ url_for('web.is_emri', no=ie.no) }}" class="mono">{{ ie.no }}</a> · {{ ie.parca_kod }} {{ ie.parca_ad }} · Rev. {{ ie.revizyon }} · lot <span class="mono">{{ ie.lot }}</span></p>
+<div class="ust">
+  <div>
+    <div class="etiket-baslik">{{ TUR_ADI[tur] }} muayenesi</div>
+    <h1><a href="{{ url_for('arayuz.is_emri', no=ie.no) }}" class="mono" style="color:inherit; text-decoration:none">{{ ie.no }}</a></h1>
+    <div class="alt-baslik">{{ ie.parca_kod }} {{ ie.parca_ad }} · Rev. {{ ie.revizyon }} · lot {{ lot(ie.lot) }}</div>
+  </div>
+</div>
 
-{% if hata %}<div class="flash hata"><b>Kaydedilmedi:</b> {{ hata }}</div>{% endif %}
+{% if hata %}<div class="bildirim hata" role="alert"><b>Kaydedilmedi.</b> {{ hata }}</div>{% endif %}
 
-<form method="post" class="kart">
+<form method="post" class="pafta">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <header><h2>Kontrol planı</h2><span class="not">Değeri yazarken tolerans cetveli canlı güncellenir</span></header>
+  <div class="tablo-kaydir">
   <table>
-    <tr><th>#</th><th>Karakteristik</th><th class="sayi">Nominal / tolerans</th><th class="sayi">Alt</th><th class="sayi">Üst</th><th>Ölçülen</th><th>Ölçüm aleti</th><th></th></tr>
+    <thead><tr><th>#</th><th>Karakteristik</th><th class="sayi">Tolerans</th><th class="sayi">Alt</th><th class="sayi">Üst</th><th class="sayi">Ölçülen</th><th style="width:200px">Bandın neresinde</th><th>Ölçüm aleti</th></tr></thead>
+    <tbody>
     {% for k in karakteristikler %}
+    {% set alt = k.nominal + k.alt_sapma %}{% set ust = k.nominal + k.ust_sapma %}
     <tr>
       <td class="mono">{{ k.no }}</td>
-      <td>{{ k.ad }} {% if k.kritik %}<span class="rozet r-UYARI">kritik</span>{% endif %}</td>
-      <td class="sayi">{{ k|tol }} {{ k.birim }}</td>
-      <td class="sayi alt-sinir">{{ '%g'|format(k.nominal + k.alt_sapma) }}</td>
-      <td class="sayi ust-sinir">{{ '%g'|format(k.nominal + k.ust_sapma) }}</td>
-      <td><input class="olcu" name="deger_{{ k.id }}" value="{{ form.get('deger_' ~ k.id, '') }}" inputmode="decimal" autocomplete="off" required
-           data-alt="{{ k.nominal + k.alt_sapma }}" data-ust="{{ k.nominal + k.ust_sapma }}"></td>
-      <td><select name="alet_{{ k.id }}" required>
+      <td>{{ k.ad }} {% if k.kritik %}{{ etiket('KRITIK', 'kritik') }}{% endif %}</td>
+      <td class="sayi" style="white-space:nowrap">{{ k|tol }} <span class="ikincil">{{ k.birim }}</span></td>
+      <td class="sayi">{{ '%g'|format(alt) }}</td>
+      <td class="sayi">{{ '%g'|format(ust) }}</td>
+      <td class="sayi"><input class="olcu" name="deger_{{ k.id }}" value="{{ form.get('deger_' ~ k.id, '') }}" inputmode="decimal" autocomplete="off" required
+           aria-label="{{ k.ad }} ölçülen değer" data-alt="{{ alt }}" data-ust="{{ ust }}"></td>
+      <td><span class="cetvel genis" data-cetvel hidden><i class="uc sol"></i><i class="uc sag"></i><i class="im"></i></span><span class="ikincil durum-yazi"></span></td>
+      <td><select name="alet_{{ k.id }}" required aria-label="{{ k.ad }} ölçüm aleti">
         <option value="">{{ k.alet_tipi }} seç</option>
         {% for a in aletler.get(k.alet_tipi, []) %}
-          {% set gecmis = a.kalibrasyon_bitis < bugun %}
-          <option value="{{ a.id }}" {{ 'selected' if form.get('alet_' ~ k.id) == a.id|string }}>{{ a.kod }} · {{ a.ad }}{{ ' · KAL. GEÇMİŞ' if gecmis }}</option>
+          <option value="{{ a.id }}" {{ 'selected' if form.get('alet_' ~ k.id) == a.id|string }}>{{ a.kod }} · {{ a.ad }}{{ ' · KAL. GEÇMİŞ' if a.kalibrasyon_bitis < bugun }}</option>
         {% endfor %}
       </select></td>
-      <td class="durum"></td>
     </tr>
     {% endfor %}
+    </tbody>
   </table>
-  <div class="satir" style="margin-top:14px">
-    <label style="margin:0">Muayeneyi yapan</label>
-    <input name="personel" value="{{ form.get('personel', '') }}" required placeholder="Ad Soyad">
-    <button class="btn">Kaydet</button>
-    <a class="btn ikincil" href="{{ url_for('web.is_emri', no=ie.no) }}">Vazgeç</a>
   </div>
-  <p class="alt" style="margin:12px 0 0">Tolerans dışı her ölçüm otomatik uygunsuzluk kaydı açar ve lotu karantinaya alır.
-    Kalibrasyonu geçmiş ya da kontrol planındaki tipe uymayan aletle ölçüm kaydedilmez.</p>
+  <div class="govde satir uca" style="border-top:1px solid var(--cizgi)">
+    <span class="ikincil">Muayeneyi yapan: <b style="color:var(--grafit)">{{ kullanici.ad }}</b> · Tolerans dışı her ölçüm otomatik uygunsuzluk açar, lotu karantinaya alır ve ERP'ye bildirir.</span>
+    <div class="satir"><a class="btn ikincil" href="{{ url_for('arayuz.is_emri', no=ie.no) }}">Vazgeç</a><button class="btn">Muayeneyi kaydet</button></div>
+  </div>
 </form>
 {% endblock %}
 {% block js %}
 <script>
 document.querySelectorAll('input.olcu').forEach(inp => {
-  const goster = () => {
-    const td = inp.closest('tr').querySelector('.durum');
+  const tr = inp.closest('tr');
+  const c = tr.querySelector('[data-cetvel]'), im = c.querySelector('.im'), yazi = tr.querySelector('.durum-yazi');
+  const alt = parseFloat(inp.dataset.alt), ust = parseFloat(inp.dataset.ust);
+  const guncelle = () => {
     const v = parseFloat(inp.value.replace(',', '.'));
-    if (isNaN(v)) { td.innerHTML = ''; return; }
-    const ok = v >= parseFloat(inp.dataset.alt) - 1e-9 && v <= parseFloat(inp.dataset.ust) + 1e-9;
-    td.innerHTML = ok ? '<span class="rozet r-UYGUN">uygun</span>' : '<span class="rozet r-RED">tolerans dışı</span>';
+    if (isNaN(v)) { c.hidden = true; yazi.textContent = ''; return; }
+    const p = (v - alt) / (ust - alt) * 100;
+    c.hidden = false;
+    im.style.left = Math.max(-4, Math.min(104, p)) + '%';
+    c.classList.toggle('disarida', p < -1e-6 || p > 100 + 1e-6);
+    c.classList.toggle('sinirda', p >= 0 && p <= 100 && (p < 15 || p > 85));
+    yazi.textContent = (p < -1e-6 || p > 100 + 1e-6) ? 'tolerans dışı' : '';
+    yazi.style.color = 'var(--red)';
   };
-  inp.addEventListener('input', goster); goster();
+  inp.addEventListener('input', guncelle); guncelle();
 });
 </script>
 {% endblock %}

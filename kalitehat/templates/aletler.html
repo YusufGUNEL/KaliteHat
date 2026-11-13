@@ -1,17 +1,33 @@
 {% extends "base.html" %}
+{% from "_makrolar.html" import etiket with context %}
 {% block baslik %}Ölçüm aletleri{% endblock %}
 {% block icerik %}
-<h1>Ölçüm aletleri ve kalibrasyon</h1>
-<p class="alt">Kalibrasyonu geçmiş alet muayene formunda görünür ama kayıt sırasında reddedilir.</p>
-<div class="kart">
-  <table>
-    <tr><th>Kod</th><th>Alet</th><th>Tip</th><th>Kalibrasyon bitişi</th><th class="sayi">Ölçüm sayısı</th><th>Durum</th></tr>
-    {% for a in rows %}
-    {% set gecmis = a.kalibrasyon_bitis < bugun %}
-    <tr><td class="mono">{{ a.kod }}</td><td>{{ a.ad }}</td><td>{{ a.tip }}</td>
-      <td class="mono {{ 'kirmizi' if gecmis }}">{{ a.kalibrasyon_bitis }}</td><td class="sayi">{{ a.kullanim }}</td>
-      <td>{% if gecmis %}<span class="rozet r-RED">kullanım dışı</span>{% else %}<span class="rozet r-UYGUN">geçerli</span>{% endif %}</td></tr>
-    {% endfor %}
-  </table>
+<div class="ust">
+  <div>
+    <h1>Ölçüm aletleri ve kalibrasyon</h1>
+    <div class="alt-baslik">Kalibrasyonu geçmiş alet muayene formunda görünür ama kayıt sırasında reddedilir. 30 gün içinde bitecekler panoda uyarı verir.</div>
+  </div>
 </div>
+<section class="pafta">
+  <table>
+    <thead><tr><th>Kod</th><th>Alet</th><th>Tip</th><th>Kalibrasyon bitişi</th><th class="sayi">Ölçüm</th><th>Durum</th>{% if yetkili('kalibrasyon') %}<th>Kalibrasyon yenile</th>{% endif %}</tr></thead>
+    <tbody>
+    {% for a in rows %}
+    {% set gecmis = a.kalibrasyon_bitis < bugun %}{% set yakin = not gecmis and a.kalibrasyon_bitis <= uyari %}
+    <tr>
+      <td class="mono">{{ a.kod }}</td><td>{{ a.ad }}</td><td>{{ a.tip }}</td>
+      <td class="mono {{ 'red-hucre' if gecmis }}">{{ a.kalibrasyon_bitis }}</td>
+      <td class="sayi">{{ a.kullanim }}</td>
+      <td>{% if gecmis %}{{ etiket('RED', 'kullanım dışı') }}{% elif yakin %}{{ etiket('IKAZ', 'yaklaşıyor') }}{% else %}{{ etiket('UYGUN', 'geçerli') }}{% endif %}</td>
+      {% if yetkili('kalibrasyon') %}
+      <td><form method="post" action="{{ url_for('arayuz.kalibrasyon_yenile', aid=a.id) }}" class="satir" style="gap:6px">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="date" name="bitis" min="{{ bugun }}" required aria-label="{{ a.kod }} yeni kalibrasyon bitişi" style="padding:4px 6px">
+        <button class="btn ikincil kucuk">Kaydet</button></form></td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
 {% endblock %}

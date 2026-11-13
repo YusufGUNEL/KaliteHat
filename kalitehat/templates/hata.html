@@ -1,4 +1,8 @@
 {% extends "base.html" %}
+{% block baslik %}{{ baslik }}{% endblock %}
 {% block icerik %}
-<div class="kart"><h1>Bulunamadı</h1><p>{{ mesaj }}</p><a class="btn ikincil" href="{{ url_for('web.pano') }}">Panoya dön</a></div>
+<section class="pafta" style="max-width:560px">
+  <header><h2>{{ baslik }}</h2></header>
+  <div class="govde"><p style="margin:0 0 14px">{{ mesaj }}</p><a class="btn ikincil" href="{{ url_for('arayuz.pano') }}">Panoya dön</a></div>
+</section>
 {% endblock %}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_makrolar.html" import etiket with context %}
+{% block baslik %}ERP olayları{% endblock %}
+{% block icerik %}
+<div class="ust">
+  <div>
+    <h1>ERP olayları</h1>
+    <div class="alt-baslik">Kalite durumu değiştiğinde olay, değişiklikle aynı transaction'da kuyruğa yazılır (outbox). Sonra ERP'ye iletilir; ERP kapalıysa artan aralıklarla yeniden denenir.</div>
+  </div>
+  {% if yetkili('entegrasyon') %}
+  <form method="post" action="{{ url_for('arayuz.olaylari_gonder') }}"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="btn">Bekleyenleri şimdi gönder</button></form>
+  {% endif %}
+</div>
+
+<div class="yan-olcu" style="margin:0 0 16px">
+  {% for kod in ['BEKLIYOR', 'HATA', 'VAZGECILDI', 'GONDERILDI'] %}<span><b>{{ sayim.get(kod, 0) }}</b>{{ OLAY_DURUM_ADI[kod]|lower }}</span>{% endfor %}
+  <span class="ikincil">Webhook: <span class="mono">{{ webhook or 'tanımlı değil' }}</span></span>
+</div>
+
+<div class="iki">
+  <section class="pafta">
+    <header><h2>Kuyruk</h2><span class="not">Son 60 olay · teslim garantisi: en az bir kez</span></header>
+    <div class="tablo-kaydir">
+    <table>
+      <thead><tr><th class="sayi">#</th><th>Olay</th><th>İş emri</th><th>Teslim</th><th class="sayi">Deneme</th></tr></thead>
+      <tbody>
+      {% for o in olay_listesi %}
+      <tr>
+        <td class="sayi">{{ o.id }}</td>
+        <td>{{ o.tur }}<div class="ikincil mono">{{ o.olusturma }}</div></td>
+        <td><a href="{{ url_for('arayuz.is_emri', no=o.is_emri_no) }}" class="mono">{{ o.is_emri_no }}</a></td>
+        <td>{{ etiket(o.durum, OLAY_DURUM_ADI[o.durum]) }}
+          {% if o.son_hata %}<div class="ikincil" style="color:var(--ikaz)">{{ o.son_hata }}</div>{% endif %}
+          {% if o.durum in ('HATA', 'VAZGECILDI') and yetkili('entegrasyon') %}
+          <form method="post" action="{{ url_for('arayuz.olay_yeniden', oid=o.id) }}" style="margin-top:4px"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ikincil kucuk">Yeniden dene</button></form>{% endif %}</td>
+        <td class="sayi">{{ o.deneme }}</td>
+      </tr>
+      {% else %}<tr><td colspan="5" class="bos">Olay yok.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+  <div>
+    {% if erp_kutusu is not none and config.DEMO_ERP %}
+    <section class="pafta">
+      <header><h2>Demo ERP'nin aldıkları</h2><span class="not">Gerçek ERP yerine çalışan alıcı; aynı anahtarlı olayı ikinci kez işlemez</span></header>
+      {% if erp_kutusu %}
+      <table><tbody>
+      {% for e in erp_kutusu %}
+        <tr><td><b>{{ e.tur }}</b> · <span class="mono">{{ e.veri.is_emri_no }}</span><div class="ikincil mono">{{ e.anahtar }} · {{ e.alinma }}</div></td></tr>
+      {% endfor %}
+      </tbody></table>
+      {% else %}<div class="bos">Henüz bir şey almadı. "Bekleyenleri şimdi gönder" ile tetikleyin.</div>{% endif %}
+    </section>
+    {% endif %}
+    <section class="pafta">
+      <header><h2>Olay türleri</h2></header>
+      <table><tbody>{% for kod, ad in OLAY_TURLERI.items() %}<tr><td class="mono" style="white-space:nowrap">{{ kod }}</td><td>{{ ad }}</td></tr>{% endfor %}</tbody></table>
+    </section>
+  </div>
+</div>
+{% endblock %}

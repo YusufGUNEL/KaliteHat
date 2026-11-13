@@ -1,0 +1,29 @@
+[project]
+name = "kalitehat"
+version = "1.0.0"
+description = "CNC atölyesi için kalite kontrol ve ERP köprüsü: muayene, DÖF, SPC, izlenebilirlik, ERP olay entegrasyonu"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = ["flask>=3.0", "openpyxl>=3.1"]
+
+[project.optional-dependencies]
+gelistirme = ["pytest>=8", "ruff>=0.6"]
+
+[tool.pytest.ini_options]
+pythonpath = [".", "tests"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+ignore = ["SIM117"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["kalitehat"]
+
+[tool.ruff.lint.per-file-ignores]
+"kalitehat/ornek_veri.py" = ["E501"]

@@ -1,69 +1,100 @@
 {% extends "base.html" %}
+{% from "_makrolar.html" import durum, lot, etiket, cetvel with context %}
 {% block baslik %}{{ ie.no }}{% endblock %}
 {% block icerik %}
-<h1 class="mono">{{ ie.no }} <span class="rozet r-{{ ie.durum }}" style="font-family:'Segoe UI'">{{ DURUM_ADI[ie.durum] }}</span></h1>
-<p class="alt">{{ ie.parca_kod }} · {{ ie.parca_ad }} · Rev. {{ ie.revizyon }} · {{ ie.malzeme }}</p>
-
-<div class="kart">
-  <div class="bilgi">
-    <div><span>Lot</span><b class="mono">{{ ie.lot }}</b></div>
-    <div><span>Adet / hurda / sağlam</span><b class="mono">{{ ie.adet }} / {{ ie.hurda_adet }} / {{ ozet.saglam_adet }}</b></div>
-    <div><span>Termin</span><b class="mono">{{ ie.termin or '–' }}</b></div>
-    <div><span>Kaynak</span><b>{{ ie.kaynak }}</b></div>
+<div class="ust">
+  <div>
+    <div class="etiket-baslik">İş emri</div>
+    <h1 class="satir" style="gap:12px"><span class="mono">{{ ie.no }}</span> {{ durum(ie.durum) }}</h1>
+    <div class="alt-baslik">{{ ie.parca_kod }} · {{ ie.parca_ad }} · Rev. {{ ie.revizyon }} · {{ ie.malzeme }}</div>
   </div>
-  {% set kirik = ie.durum == 'KARANTINA' %}
-  <div class="akis">
-    <div class="{{ 'gecti' if ie.fai_onayli else ('kirik' if kirik else 'simdi') }}">1 · İlk parça (FAI)</div>
-    <div class="{{ 'gecti' if ie.durum == 'ONAYLI' else ('kirik' if kirik and ie.fai_onayli else ('simdi' if ie.fai_onayli else '')) }}">2 · Proses muayeneleri</div>
-    <div class="{{ 'gecti' if ie.durum == 'ONAYLI' }}">3 · Final</div>
-    <div class="{{ 'gecti' if ie.durum == 'ONAYLI' }}">4 · ERP'ye "sevke uygun"</div>
-  </div>
-  <div class="satir" style="margin-top:14px">
-    {% if ie.durum != 'ONAYLI' %}
+  <div class="ust-eylem">
+    {% if ie.durum != 'ONAYLI' and yetkili('muayene') %}
       {% if not ie.fai_onayli %}
-        <a class="btn" href="{{ url_for('web.muayene', no=ie.no, tur='FAI') }}">İlk parça muayenesi gir</a>
+        <a class="btn" href="{{ url_for('arayuz.muayene_formu', no=ie.no, tur='FAI') }}">İlk parça muayenesi</a>
       {% else %}
-        <a class="btn" href="{{ url_for('web.muayene', no=ie.no, tur='PROSES') }}">Proses muayenesi gir</a>
-        <a class="btn ikincil" href="{{ url_for('web.muayene', no=ie.no, tur='FINAL') }}">Final muayene</a>
+        <a class="btn" href="{{ url_for('arayuz.muayene_formu', no=ie.no, tur='PROSES') }}">Proses muayenesi</a>
+        <a class="btn ikincil" href="{{ url_for('arayuz.muayene_formu', no=ie.no, tur='FINAL') }}">Final muayene</a>
       {% endif %}
     {% endif %}
-    <a class="btn ikincil" href="{{ url_for('web.api_kalite', no=ie.no) }}">ERP'nin gördüğü JSON</a>
+    {% if muayeneler|selectattr('0.tur', 'equalto', 'FAI')|list %}
+      <a class="btn ikincil" href="{{ url_for('arayuz.fai_indir', no=ie.no) }}">FAI raporu (Excel)</a>
+    {% endif %}
   </div>
 </div>
 
-<div class="kart">
-  <h2>Muayeneler</h2>
+<section class="pafta">
+  <div class="kunye">
+    <div><span>Lot</span><b>{{ ie.lot }}</b></div>
+    <div><span>Adet</span><b>{{ ie.adet }}</b></div>
+    <div><span>Hurda / sağlam</span><b><span class="{{ 'red-hucre' if ie.hurda_adet }}">{{ ie.hurda_adet }}</span> / {{ ozet.saglam_adet }}</b></div>
+    <div><span>Termin</span><b>{{ ie.termin or '–' }}</b></div>
+    <div><span>Kaynak</span><b style="font-family:var(--sans)">{{ ie.kaynak }}</b></div>
+  </div>
+  {% set kirik = ie.durum == 'KARANTINA' %}
+  <div class="asamalar" aria-label="Lot aşamaları">
+    <div class="asama {{ 'gecti' if ie.fai_onayli else ('kirik' if kirik else 'simdi') }}">İlk parça onayı</div>
+    <div class="asama {{ 'gecti' if ie.durum == 'ONAYLI' else ('kirik' if kirik and ie.fai_onayli else ('simdi' if ie.fai_onayli)) }}">Proses muayeneleri</div>
+    <div class="asama {{ 'gecti' if ie.durum == 'ONAYLI' }}">Final muayene</div>
+    <div class="asama {{ 'gecti' if ie.durum == 'ONAYLI' }}">ERP'ye "sevke uygun"</div>
+  </div>
+</section>
+
+<section class="pafta">
+  <header><h2>Muayeneler</h2><span class="not">Her hücrede ölçülen değer ve tolerans bandındaki yeri</span></header>
   {% if muayeneler %}
-  <div style="overflow-x:auto">
+  <div class="tablo-kaydir">
   <table>
-    <tr><th>#</th><th>Tür</th><th>Personel · tarih</th>
-      {% for k in karakteristikler %}<th class="sayi">{{ k.no }}. {{ k.ad }}<br><span style="text-transform:none">{{ k|tol }}</span></th>{% endfor %}
-      <th>Sonuç</th></tr>
+    <thead><tr><th>#</th><th>Tür · personel</th>
+      {% for k in karakteristikler %}<th class="sayi">{{ k.no }}. {{ k.ad }}<div style="text-transform:none; letter-spacing:0" class="mono">{{ k|tol }}</div></th>{% endfor %}
+      <th>Sonuç</th></tr></thead>
+    <tbody>
     {% for m, ol in muayeneler %}
     <tr>
-      <td class="mono">{{ m.numune_no }}</td><td>{{ TUR_ADI[m.tur] }}</td>
-      <td>{{ m.personel }}<br><span class="mono alt">{{ m.tarih }}</span></td>
+      <td class="mono">{{ m.numune_no }}</td>
+      <td>{{ TUR_ADI[m.tur] }}<div class="ikincil">{{ m.personel }} · <span class="mono">{{ m.tarih }}</span></div></td>
       {% for k in karakteristikler %}{% set o = ol.get(k.id) %}
-        <td class="sayi {{ 'kirmizi' if o and not o.uygun }}" title="{{ o.alet_kod if o }}">{{ '%g'|format(o.deger) if o else '–' }}</td>
+        <td class="sayi {{ 'red-hucre' if o and not o.uygun }}" title="{{ o.alet_kod if o }}">
+          {% if o %}<div class="olcu-hucre">{{ cetvel(o.deger, k) }}<span>{{ '%g'|format(o.deger) }}</span></div>{% else %}–{% endif %}</td>
       {% endfor %}
-      <td><span class="rozet r-{{ m.sonuc }}">{{ m.sonuc }}</span></td>
+      <td>{{ etiket(m.sonuc) }}</td>
     </tr>
     {% endfor %}
+    </tbody>
   </table>
   </div>
-  {% else %}<p class="alt">Henüz muayene yok. Seri üretime geçmeden önce ilk parça onaylanmalı.</p>{% endif %}
-</div>
+  {% else %}<div class="bos">Henüz muayene yok. Seri üretime geçmeden önce ilk parça onaylanmalı.</div>{% endif %}
+</section>
 
-<div class="kart">
-  <h2>Uygunsuzluklar</h2>
-  {% if ncr %}
-  <table>
-    <tr><th>No</th><th>Açıklama</th><th>Durum</th><th>Karar</th></tr>
-    {% for u in ncr %}
-    <tr><td><a href="{{ url_for('web.uygunsuzluk', nid=u.id) }}">NCR-{{ '%04d'|format(u.id) }}</a></td><td>{{ u.aciklama }}</td>
-      <td><span class="rozet r-{{ u.durum }}">{{ u.durum }}</span></td><td>{{ KARAR_ADI.get(u.karar, '–') }}{% if u.hurda_adet %} ({{ u.hurda_adet }} adet){% endif %}</td></tr>
-    {% endfor %}
-  </table>
-  {% else %}<p class="alt">Uygunsuzluk yok.</p>{% endif %}
+<div class="iki">
+  <section class="pafta">
+    <header><h2>Uygunsuzluklar</h2></header>
+    {% if ncr %}
+    <table>
+      <thead><tr><th>No</th><th>Tespit</th><th>Durum</th></tr></thead>
+      <tbody>
+      {% for u in ncr %}
+      <tr><td><a href="{{ url_for('arayuz.uygunsuzluk', nid=u.id) }}" class="mono">NCR-{{ '%04d'|format(u.id) }}</a></td>
+        <td>{{ u.aciklama }}{% if u.karar %}<div class="ikincil">Karar: {{ KARAR_ADI[u.karar] }}{% if u.hurda_adet %} · {{ u.hurda_adet }} adet hurda{% endif %}</div>{% endif %}</td>
+        <td>{{ etiket(u.durum, "açık" if u.durum == "ACIK" else "kapalı") }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="bos">Uygunsuzluk yok.</div>{% endif %}
+  </section>
+  <section class="pafta">
+    <header><h2>ERP'ye giden olaylar</h2><a class="not" href="{{ url_for('api.is_emri_kalite', no=ie.no) }}" title="X-API-Key gerekir">API: kalite özeti</a></header>
+    {% if olay_listesi %}
+    <table>
+      <thead><tr><th>#</th><th>Olay</th><th>Zaman</th><th>Teslim</th></tr></thead>
+      <tbody>
+      {% for o in olay_listesi %}
+      <tr><td class="mono">{{ o.id }}</td><td>{{ o.tur }}<div class="ikincil">{{ OLAY_TURLERI[o.tur] }}</div></td>
+        <td class="mono ikincil">{{ o.olusturma }}</td><td>{{ etiket(o.durum, OLAY_DURUM_ADI[o.durum]) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="bos">Henüz olay yok.</div>{% endif %}
+  </section>
 </div>
 {% endblock %}

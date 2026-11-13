@@ -1,39 +1,48 @@
 {% extends "base.html" %}
+{% from "_makrolar.html" import durum, lot, etiket with context %}
 {% block baslik %}İş emirleri{% endblock %}
 {% block icerik %}
-<h1>İş emirleri</h1>
-<p class="alt">ERP'den gelen iş emirleri. Her lot ilk parça onayı → proses → final muayene sırasıyla ilerler.</p>
+<div class="ust">
+  <div>
+    <h1>İş emirleri</h1>
+    <div class="alt-baslik">ERP'den gelir. Her lot ilk parça → proses → final sırasıyla ilerler; sonuç ERP'ye geri döner.</div>
+  </div>
+</div>
 
-<div class="kart">
-  <h2>ERP'den iş emri al</h2>
-  <form method="post" action="{{ url_for('web.ice_aktar') }}" enctype="multipart/form-data" class="satir">
-    <input type="file" name="dosya" accept=".csv,.xlsx">
+{% if yetkili('erp_ice_aktar') %}
+<section class="pafta">
+  <header><h2>ERP'den iş emri al</h2><span class="not">Aynı iş emri ikinci kez gelirse atlanır; dosyayı tekrar yüklemek güvenlidir</span></header>
+  <form method="post" action="{{ url_for('arayuz.ice_aktar') }}" enctype="multipart/form-data" class="govde satir">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="file" name="dosya" accept=".csv,.xlsx" aria-label="İş emri dosyası">
     <button class="btn">İçe aktar</button>
-    <span class="alt" style="margin:0">CSV ya da Excel. Sütunlar: <span class="mono">is_emri_no, parca_kodu, lot, adet, termin</span>.
-      Aynı akış <span class="mono">POST /api/is-emirleri</span> ile de çalışır.</span>
+    <span class="ikincil">CSV ya da Excel · sütunlar <span class="mono">is_emri_no, parca_kodu, lot, adet, termin</span> · aynı akış <a href="{{ url_for('arayuz.api_belgesi') }}">API</a> ile de çalışır</span>
   </form>
-</div>
+</section>
+{% endif %}
 
-<div class="satir filtre" style="margin-bottom:12px">
-  <a href="{{ url_for('web.is_emirleri') }}" class="{{ 'aktif' if not secili }}">Tümü</a>
-  {% for kod, ad in DURUM_ADI.items() %}<a href="{{ url_for('web.is_emirleri', durum=kod) }}" class="{{ 'aktif' if secili == kod }}">{{ ad }}</a>{% endfor %}
-</div>
+<nav class="sekmeler" aria-label="Duruma göre süz">
+  <a href="{{ url_for('arayuz.is_emirleri') }}" class="{{ 'aktif' if not secili }}">Tümü</a>
+  {% for kod, ad in DURUM_ADI.items() %}<a href="{{ url_for('arayuz.is_emirleri', durum=kod) }}" class="{{ 'aktif' if secili == kod }}">{{ ad }}</a>{% endfor %}
+</nav>
 
-<div class="kart">
+<section class="pafta">
   <table>
-    <tr><th>İş emri</th><th>Parça</th><th>Lot</th><th class="sayi">Adet</th><th class="sayi">Hurda</th><th>Termin</th><th>Kaynak</th><th>Durum</th></tr>
+    <thead><tr><th>İş emri</th><th>Parça</th><th>Lot</th><th class="sayi">Adet</th><th class="sayi">Hurda</th><th>Termin</th><th>Kaynak</th><th>Durum</th></tr></thead>
+    <tbody>
     {% for r in rows %}
     <tr>
-      <td><a href="{{ url_for('web.is_emri', no=r.no) }}" class="mono">{{ r.no }}</a></td>
-      <td>{{ r.parca_kod }} · {{ r.parca_ad }}</td>
-      <td class="mono">{{ r.lot }}</td>
+      <td><a href="{{ url_for('arayuz.is_emri', no=r.no) }}" class="mono">{{ r.no }}</a></td>
+      <td>{{ r.parca_kod }}<div class="ikincil">{{ r.parca_ad }}</div></td>
+      <td>{{ lot(r.lot) }}</td>
       <td class="sayi">{{ r.adet }}</td>
-      <td class="sayi {{ 'kirmizi' if r.hurda_adet }}">{{ r.hurda_adet }}</td>
-      <td class="mono">{{ r.termin or '–' }}</td>
-      <td class="alt" style="margin:0">{{ r.kaynak }}</td>
-      <td><span class="rozet r-{{ r.durum }}">{{ DURUM_ADI[r.durum] }}</span>{% if r.acik %} <span class="rozet r-ACIK">{{ r.acik }} açık NCR</span>{% endif %}</td>
+      <td class="sayi {{ 'red-hucre' if r.hurda_adet }}">{{ r.hurda_adet or '–' }}</td>
+      <td class="mono {{ 'red-hucre' if r.termin and r.termin < bugun and r.durum != 'ONAYLI' }}">{{ r.termin or '–' }}</td>
+      <td class="ikincil">{{ r.kaynak }}</td>
+      <td><div class="satir" style="gap:6px">{{ durum(r.durum) }}{% if r.acik %}{{ etiket('ACIK', r.acik ~ ' açık NCR') }}{% endif %}</div></td>
     </tr>
-    {% else %}<tr><td colspan="8" class="alt">Kayıt yok.</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="8" class="bos">Bu durumda iş emri yok.</td></tr>{% endfor %}
+    </tbody>
   </table>
-</div>
+</section>
 {% endblock %}

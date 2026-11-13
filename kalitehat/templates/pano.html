@@ -1,74 +1,106 @@
 {% extends "base.html" %}
+{% from "_makrolar.html" import etiket, lot, cpk_cubugu with context %}
 {% block baslik %}Pano{% endblock %}
 {% block icerik %}
-<h1>Kalite panosu</h1>
-<p class="alt">ERP'den gelen iş emirleri, muayene sonuçları ve açık uygunsuzluklar tek yerde.</p>
-
-<div class="izgara i4">
-  <div class="kart kpi"><a href="{{ url_for('web.is_emirleri', durum='FAI_BEKLIYOR') }}">
-    <div class="deger">{{ sayilar.get('FAI_BEKLIYOR', 0) }}</div><div class="etiket">İlk parça onayı bekleyen</div></a></div>
-  <div class="kart kpi"><a href="{{ url_for('web.is_emirleri', durum='KARANTINA') }}">
-    <div class="deger {{ 'kirmizi' if sayilar.get('KARANTINA') }}">{{ sayilar.get('KARANTINA', 0) }}</div><div class="etiket">Karantinadaki lot</div></a></div>
-  <div class="kart kpi"><a href="{{ url_for('web.uygunsuzluklar') }}">
-    <div class="deger {{ 'kirmizi' if acik_dof }}">{{ acik_dof }}</div><div class="etiket">Açık uygunsuzluk (DÖF)</div></a></div>
-  <div class="kart kpi">
-    <div class="deger">%{{ '%.1f'|format(ret_orani) }}</div><div class="etiket">Muayene ret oranı · son 30 gün ({{ muayene_sayisi }} muayene)</div></div>
+<div class="ust">
+  <div>
+    <h1>Kalite panosu</h1>
+    <div class="alt-baslik">ERP'den gelen lotların nerede olduğu ve bugün dikkat isteyen işler.</div>
+  </div>
 </div>
 
-<div class="izgara i2">
-  <div class="kart">
-    <h2>Uygunsuzluk Pareto'su (karakteristik bazında)</h2>
-    {% if pareto %}<canvas id="pareto" height="150"></canvas>{% else %}<p class="alt">Henüz uygunsuzluk yok.</p>{% endif %}
-  </div>
-  <div class="kart">
-    <h2>Kritik karakteristiklerde proses yeterliliği</h2>
+<nav class="akis-seridi" aria-label="Lot akışı">
+  <a href="{{ url_for('arayuz.is_emirleri', durum='FAI_BEKLIYOR') }}"><div class="sayi-buyuk">{{ sayilar.get('FAI_BEKLIYOR', 0) }}</div><div class="ad">İlk parça bekliyor</div></a>
+  <a href="{{ url_for('arayuz.is_emirleri', durum='URETIMDE') }}"><div class="sayi-buyuk">{{ sayilar.get('URETIMDE', 0) }}</div><div class="ad">Üretimde</div></a>
+  <a href="{{ url_for('arayuz.is_emirleri', durum='KARANTINA') }}" class="{{ 'karantina-var' if sayilar.get('KARANTINA') }}"><div class="sayi-buyuk">{{ sayilar.get('KARANTINA', 0) }}</div><div class="ad">Karantinada</div></a>
+  <a href="{{ url_for('arayuz.is_emirleri', durum='ONAYLI') }}"><div class="sayi-buyuk">{{ sayilar.get('ONAYLI', 0) }}</div><div class="ad">Sevke uygun</div></a>
+</nav>
+<div class="yan-olcu">
+  <span><b>%{{ ret_orani|ondalik(1) }}</b>muayene ret oranı, son 30 gün ({{ muayene_sayisi }} muayene)</span>
+  <span><b>{{ acik_dof }}</b>açık DÖF</span>
+  <span><b>{{ bekleyen_olay }}</b>ERP'ye gitmemiş olay</span>
+</div>
+
+{% set dikkat_sayisi = alarmlar|length + son_ncr|length + kalibrasyon|length + olay_hatalari|length %}
+<section class="pafta">
+  <header><h2>Dikkat gerektirenler</h2><span class="not">{{ dikkat_sayisi }} madde · önem sırasıyla</span></header>
+  {% if dikkat_sayisi %}
+  <ul class="dikkat">
+    {% for u in son_ncr %}
+    <li><span class="tur ncr">Uygunsuzluk</span>
+      <div class="ne"><b><a href="{{ url_for('arayuz.uygunsuzluk', nid=u.id) }}">NCR-{{ '%04d'|format(u.id) }}</a></b> · {{ u.aciklama }}
+        <div>Lot karantinada; DÖF kapanmadan final muayene ve sevk yapılamaz.</div></div>
+      <a class="btn ikincil kucuk" href="{{ url_for('arayuz.uygunsuzluk', nid=u.id) }}">DÖF'ü aç</a></li>
+    {% endfor %}
+    {% for k, ihlal, son in alarmlar %}
+    <li><span class="tur spc">SPC alarmı</span>
+      <div class="ne"><b>{{ k.parca_kod }} · {{ k.ad }}</b> — {{ ihlal.aciklama }}
+        <div>SPC, ölçüm tolerans dışına çıkmadan önce de uyarır; prosese erken müdahale fırsatı. Son ölçüm <span class="mono">{{ '%g'|format(son) }}</span>.</div></div>
+      <a class="btn ikincil kucuk" href="{{ url_for('arayuz.spc_grafik', kid=k.id) }}">Grafiğe bak</a></li>
+    {% endfor %}
+    {% for a in kalibrasyon %}
+    {% set gecmis = a.kalibrasyon_bitis < bugun %}
+    <li><span class="tur kal">Kalibrasyon</span>
+      <div class="ne"><b class="mono">{{ a.kod }}</b> · {{ a.ad }}
+        <div>{% if gecmis %}{{ a.kalibrasyon_bitis }} tarihinde bitti; muayenede kullanılamıyor.{% else %}{{ a.kalibrasyon_bitis }} tarihinde bitiyor.{% endif %}</div></div>
+      <a class="btn ikincil kucuk" href="{{ url_for('arayuz.aletler') }}">Aletler</a></li>
+    {% endfor %}
+    {% for o in olay_hatalari %}
+    <li><span class="tur erp">ERP teslimi</span>
+      <div class="ne"><b>{{ o.tur }}</b> · <span class="mono">{{ o.is_emri_no }}</span>
+        <div>{{ o.deneme }} deneme başarısız: {{ o.son_hata }}</div></div>
+      <a class="btn ikincil kucuk" href="{{ url_for('arayuz.entegrasyon') }}">Kuyruğa bak</a></li>
+    {% endfor %}
+  </ul>
+  {% else %}<div class="bos">Dikkat isteyen bir şey yok.</div>{% endif %}
+</section>
+
+<div class="iki">
+  <section class="pafta">
+    <header><h2>Proses yeterliliği · kritik karakteristikler</h2><span class="not">Cpk hedefi 1,33 (çubuktaki çizgi)</span></header>
     <table>
-      <tr><th>Parça · karakteristik</th><th class="sayi">n</th><th class="sayi">Cp</th><th class="sayi">Cpk</th><th></th></tr>
+      <thead><tr><th>Parça · karakteristik</th><th class="sayi">n</th><th class="sayi">Cpk</th><th class="sayi" title="Uzun dönem: kayma ve aşınma dahil">Ppk</th></tr></thead>
+      <tbody>
       {% for k, y in yetenekler %}
       <tr>
-        <td><a href="{{ url_for('web.spc', kid=k.id) }}">{{ k.parca_kod }} · {{ k.ad }}</a><br><span class="alt mono">{{ k|tol }} {{ k.birim }}</span></td>
+        <td><a href="{{ url_for('arayuz.spc_grafik', kid=k.id) }}">{{ k.parca_kod }} · {{ k.ad }}</a><div class="ikincil mono">{{ k|tol }} {{ k.birim }}</div></td>
         {% if y %}
-          <td class="sayi">{{ y.n }}</td><td class="sayi">{{ '%.2f'|format(y.cp) }}</td>
-          <td class="sayi {{ 'kirmizi' if y.cpk < 1.33 }}">{{ '%.2f'|format(y.cpk) }}</td>
-          <td>{% if y.cpk < 1 %}<span class="rozet r-RED">yetersiz</span>{% elif y.cpk < 1.33 %}<span class="rozet r-UYARI">sınırda</span>{% else %}<span class="rozet r-UYGUN">yeterli</span>{% endif %}</td>
-        {% else %}<td colspan="4" class="alt">yetersiz veri</td>{% endif %}
+        <td class="sayi">{{ y.n }}</td>
+        <td><div class="cpk">{{ cpk_cubugu(y.cpk) }}<span class="mono {{ 'red-hucre' if y.cpk < 1 }}">{{ y.cpk|ondalik }}</span></div></td>
+        <td class="sayi {{ 'red-hucre' if y.ppk is not none and y.ppk < 1 }}">{{ y.ppk|ondalik if y.ppk is not none else '–' }}</td>
+        {% else %}<td colspan="3" class="ikincil">yetersiz veri</td>{% endif %}
       </tr>
       {% endfor %}
+      </tbody>
     </table>
-    <p class="alt" style="margin:10px 0 0">Hedef Cpk ≥ 1,33. Altındaki karakteristikler tolerans dışına çıkmadan önce müdahale ister.</p>
-  </div>
-</div>
-
-<div class="kart">
-  <h2>Son açık uygunsuzluklar</h2>
-  {% if son_ncr %}
-  <table>
-    <tr><th>No</th><th>İş emri</th><th>Açıklama</th><th>Açılış</th></tr>
-    {% for u in son_ncr %}
-    <tr><td><a href="{{ url_for('web.uygunsuzluk', nid=u.id) }}">NCR-{{ '%04d'|format(u.id) }}</a></td>
-      <td><a href="{{ url_for('web.is_emri', no=u.ie_no) }}">{{ u.ie_no }}</a></td><td>{{ u.aciklama }}</td><td class="mono">{{ u.acilis }}</td></tr>
-    {% endfor %}
-  </table>
-  {% else %}<p class="alt">Açık uygunsuzluk yok.</p>{% endif %}
+  </section>
+  <section class="pafta">
+    <header><h2>Uygunsuzluk Pareto'su</h2><span class="not">Karakteristik bazında, tüm zamanlar</span></header>
+    <div class="govde" style="height:320px">{% if pareto %}<canvas id="pareto" aria-label="Uygunsuzluk Pareto grafiği"></canvas>{% else %}<div class="bos">Henüz uygunsuzluk yok.</div>{% endif %}</div>
+  </section>
 </div>
 {% endblock %}
 {% block js %}
 {% if pareto %}
 <script src="{{ url_for('static', filename='chart.umd.min.js') }}"></script>
 <script>
+Chart.defaults.font.family = '"Plex", "Segoe UI", sans-serif';
+Chart.defaults.color = '#555b62';
 new Chart(document.getElementById('pareto'), {
   data: {
     labels: {{ pareto|map(attribute='etiket')|list|tojson }},
     datasets: [
-      { type: 'bar', label: 'Adet', data: {{ pareto|map(attribute='n')|list|tojson }}, backgroundColor: '#1f5f4a', yAxisID: 'y' },
-      { type: 'line', label: 'Birikimli %', data: {{ birikimli|tojson }}, borderColor: '#b3261e', backgroundColor: '#b3261e', yAxisID: 'y2', tension: 0 }
+      { type: 'bar', label: 'Uygunsuzluk', data: {{ pareto|map(attribute='n')|list|tojson }}, backgroundColor: '#2f5470', borderRadius: 1, maxBarThickness: 56, yAxisID: 'y' },
+      { type: 'line', label: 'Birikimli %', data: {{ birikimli|tojson }}, borderColor: '#b42318', backgroundColor: '#b42318', borderWidth: 1.5, pointRadius: 3, yAxisID: 'y2' }
     ]
   },
   options: {
-    plugins: { legend: { position: 'bottom' } },
+    maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10 } } },
     scales: {
-      y: { beginAtZero: true, ticks: { precision: 0 } },
-      y2: { position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%' } }
+      x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 0, callback: function(v) { const s = this.getLabelForValue(v); return s.length > 22 ? s.split(' · ') : s; } } },
+      y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(35,38,42,.08)' }, border: { display: false } },
+      y2: { position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false }, ticks: { callback: v => '%' + v }, border: { display: false } }
     }
   }
 });

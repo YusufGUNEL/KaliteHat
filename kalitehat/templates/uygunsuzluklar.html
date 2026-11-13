@@ -1,21 +1,28 @@
 {% extends "base.html" %}
+{% from "_makrolar.html" import etiket, lot with context %}
 {% block baslik %}Uygunsuzluklar{% endblock %}
 {% block icerik %}
-<h1>Uygunsuzluk ve DÖF</h1>
-<p class="alt">Tolerans dışı ölçümden otomatik açılır. Kök neden, düzeltici faaliyet ve karar yazılmadan kapanmaz; lot o zamana kadar karantinada kalır.</p>
-<div class="kart">
+<div class="ust">
+  <div>
+    <h1>Uygunsuzluk ve DÖF</h1>
+    <div class="alt-baslik">Tolerans dışı ölçümden otomatik açılır. Kök neden, düzeltici faaliyet ve karar yazılmadan kapanmaz; lot o zamana kadar karantinada kalır.</div>
+  </div>
+</div>
+<section class="pafta">
   <table>
-    <tr><th>No</th><th>İş emri · lot</th><th>Açıklama</th><th>Açılış</th><th>Durum</th><th>Karar</th></tr>
+    <thead><tr><th>No</th><th>İş emri · lot</th><th>Tespit</th><th>Açılış</th><th>Durum</th><th>Karar</th></tr></thead>
+    <tbody>
     {% for u in rows %}
     <tr>
-      <td><a href="{{ url_for('web.uygunsuzluk', nid=u.id) }}">NCR-{{ '%04d'|format(u.id) }}</a></td>
-      <td><a href="{{ url_for('web.is_emri', no=u.ie_no) }}" class="mono">{{ u.ie_no }}</a><br><span class="mono alt">{{ u.lot }}</span></td>
-      <td>{{ u.aciklama }}</td>
-      <td class="mono">{{ u.acilis }}</td>
-      <td><span class="rozet r-{{ u.durum }}">{{ u.durum }}</span></td>
-      <td>{{ KARAR_ADI.get(u.karar, '–') }}</td>
+      <td><a href="{{ url_for('arayuz.uygunsuzluk', nid=u.id) }}" class="mono">NCR-{{ '%04d'|format(u.id) }}</a></td>
+      <td><a href="{{ url_for('arayuz.is_emri', no=u.ie_no) }}" class="mono">{{ u.ie_no }}</a><div style="margin-top:2px">{{ lot(u.lot) }}</div></td>
+      <td>{{ u.aciklama }}{% if u.kok_neden %}<div class="ikincil">Kök neden: {{ u.kok_neden }}</div>{% endif %}</td>
+      <td class="mono ikincil">{{ u.acilis }}</td>
+      <td>{{ etiket(u.durum, "açık" if u.durum == "ACIK" else "kapalı") }}</td>
+      <td>{{ KARAR_ADI.get(u.karar, '–') }}{% if u.hurda_adet %}<div class="ikincil">{{ u.hurda_adet }} adet</div>{% endif %}</td>
     </tr>
-    {% else %}<tr><td colspan="6" class="alt">Kayıt yok.</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="6" class="bos">Kayıt yok.</td></tr>{% endfor %}
+    </tbody>
   </table>
-</div>
+</section>
 {% endblock %}

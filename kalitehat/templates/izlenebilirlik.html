@@ -1,24 +1,30 @@
 {% extends "base.html" %}
+{% from "_makrolar.html" import durum, lot, etiket with context %}
 {% block baslik %}İzlenebilirlik{% endblock %}
 {% block icerik %}
-<h1>İzlenebilirlik</h1>
-<p class="alt">Müşteri bir lot numarasıyla geldiğinde: hangi iş emri, hangi parça revizyonu, kim, hangi aletle, ne zaman, ne ölçtü.</p>
-<form class="kart satir">
-  <input name="q" value="{{ q }}" placeholder="Lot ya da iş emri no" autofocus style="width:260px">
+<div class="ust">
+  <div>
+    <h1>İzlenebilirlik</h1>
+    <div class="alt-baslik">Müşteri bir lot numarasıyla geldiğinde: hangi iş emri, hangi parça revizyonu, kim, hangi aletle, ne zaman, ne ölçtü.</div>
+  </div>
+</div>
+<form class="satir" style="margin-bottom:20px">
+  <input name="q" value="{{ q }}" placeholder="Lot ya da iş emri no, ör. MB07" aria-label="Lot ya da iş emri no" autofocus style="width:300px">
   <button class="btn">Ara</button>
 </form>
 {% for ie, ol in sonuc %}
-<div class="kart">
-  <h2><a href="{{ url_for('web.is_emri', no=ie.no) }}" class="mono">{{ ie.no }}</a> · lot <span class="mono">{{ ie.lot }}</span>
-    · {{ ie.parca_kod }} Rev. {{ ie.revizyon }} <span class="rozet r-{{ ie.durum }}">{{ DURUM_ADI[ie.durum] }}</span></h2>
+<section class="pafta">
+  <header><h2 class="satir" style="gap:10px"><a href="{{ url_for('arayuz.is_emri', no=ie.no) }}" class="mono">{{ ie.no }}</a> {{ lot(ie.lot) }} <span style="font-weight:400">{{ ie.parca_kod }} · Rev. {{ ie.revizyon }}</span></h2>{{ durum(ie.durum) }}</header>
   <table>
-    <tr><th>Muayene</th><th>Personel</th><th>Tarih</th><th>Karakteristik</th><th class="sayi">Değer</th><th>Alet</th><th>Alet kal. bitişi</th></tr>
+    <thead><tr><th>Muayene</th><th>Personel</th><th>Tarih</th><th>Karakteristik</th><th class="sayi">Değer</th><th>Alet</th><th>Alet kal. bitişi</th></tr></thead>
+    <tbody>
     {% for o in ol %}
-    <tr><td>{{ o.numune_no }} · {{ TUR_ADI[o.tur] }}</td><td>{{ o.personel }}</td><td class="mono">{{ o.tarih }}</td>
-      <td>{{ o.kno }}. {{ o.kad }}</td><td class="sayi {{ 'kirmizi' if not o.uygun }}">{{ '%g'|format(o.deger) }}</td>
-      <td class="mono">{{ o.alet_kod }}</td><td class="mono">{{ o.kalibrasyon_bitis }}</td></tr>
-    {% else %}<tr><td colspan="7" class="alt">Bu lotta muayene yok.</td></tr>{% endfor %}
+    <tr><td>{{ o.numune_no }} · {{ TUR_ADI[o.tur] }}</td><td>{{ o.personel }}</td><td class="mono ikincil">{{ o.tarih }}</td>
+      <td>{{ o.kno }}. {{ o.kad }}</td><td class="sayi {{ 'red-hucre' if not o.uygun }}">{{ '%g'|format(o.deger) }}</td>
+      <td class="mono">{{ o.alet_kod }}</td><td class="mono ikincil">{{ o.kalibrasyon_bitis }}</td></tr>
+    {% else %}<tr><td colspan="7" class="bos">Bu lotta muayene yok.</td></tr>{% endfor %}
+    </tbody>
   </table>
-</div>
-{% else %}{% if q %}<p class="alt">Sonuç yok.</p>{% endif %}{% endfor %}
+</section>
+{% else %}{% if q %}<section class="pafta"><div class="bos">"{{ q }}" için kayıt yok.</div></section>{% endif %}{% endfor %}
 {% endblock %}

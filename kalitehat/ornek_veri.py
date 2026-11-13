@@ -1,16 +1,20 @@
-"""Demo veritabanını sıfırdan kurar: parçalar, kontrol planları, aletler ve ~45 günlük muayene geçmişi.
+"""Demo veritabanı: 4 parça, 10 ölçüm aleti, 4 kullanıcı ve ~45 günlük gerçekçi üretim/muayene geçmişi.
 
-Kullanım:  python ornek_veri.py
+Veride iki bilinçli hikâye var (sunumda anlatılacak):
+  * SN-50 merkezleme çapı: taşlama ofseti alt toleransa kaymış (Cp iyi, Cpk kötü).
+  * MB-125 pim deliği: rayba aşınıyor, ölçü lot lot büyüyor; SPC kuralları tolerans dışına
+    çıkmadan önce uyarıyor, son lot karantinada.
+Kullanım:  flask --app kalitehat ornek-veri   ya da   python -m kalitehat.ornek_veri
 """
 import random
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from kalitehat.db import baglan
-from kalitehat.erp import is_emirlerini_al
-from kalitehat.kurallar import dof_kapat, muayene_kaydet
-
-DB = Path(__file__).parent / "veri" / "kalitehat.db"
+from . import kullanicilar
+from .db import baglan
+from .dof import dof_kapat
+from .erp import is_emirlerini_al
+from .muayene import muayene_kaydet
 
 # kod, ad, rev, malzeme, [(ad, nominal, alt, üst, birim, alet tipi, kritik, adım)]
 PARCALAR = [
@@ -52,6 +56,14 @@ ALETLER = [
 ]
 
 PERSONEL = ["Mehmet Kaya", "Ayşe Demir", "Emre Şahin"]
+# kullanıcı adı, ad, rol — demo parolası hepsi için "demo"
+KULLANICILAR = [
+    ("mehmet", "Mehmet Kaya", "OPERATOR"),
+    ("ayse", "Ayşe Demir", "OPERATOR"),
+    ("emre", "Emre Şahin", "OPERATOR"),
+    ("zeynep", "Zeynep Arslan", "KALITE"),
+    ("selin", "Selin Aydın", "YONETICI"),
+]
 
 # (karakteristik adı -> olası (kök neden, aksiyon, karar))
 KOK_NEDEN = {
@@ -67,14 +79,14 @@ KOK_NEDEN = {
 VARSAYILAN_NEDEN = [("Operatör ölçüm hatası şüphesi; tekrar ölçümde de tolerans dışı", "Operatöre ölçüm eğitimi tekrarlandı", "YENIDEN_ISLEME")]
 
 
-def degeri_uret(rnd, k, lot_sira, ad):
+def degeri_uret(rnd, k, lot_sira, adim_no, ad):
     alt, ust = k["nominal"] + k["alt_sapma"], k["nominal"] + k["ust_sapma"]
     orta, gen = (alt + ust) / 2, ust - alt
     sigma = gen / 10                                     # Cpk ≈ 1,67: sağlıklı proses
     if ad == "Merkezleme çapı Ø50 g6":                    # ofset alta kaymış: Cpk < 1
         orta, sigma = alt + gen * 0.2, gen / 6
     elif ad == "Pim deliği Ø12 H7" and k["parca_kod"] == "MB-125":   # takım aşınması: lot lot büyüyor
-        orta, sigma = alt + gen * (0.3 + 0.08 * lot_sira), gen / 10
+        orta, sigma = alt + gen * (0.28 + 0.06 * lot_sira + 0.025 * adim_no), gen / 12
     elif ad == "Düzlemsellik":                            # alüminyum plakada bağlama gerilimi
         orta, sigma = gen * 0.55, gen / 7
     elif ad == "Taban düzlemselliği":
@@ -85,12 +97,18 @@ def degeri_uret(rnd, k, lot_sira, ad):
     return deger
 
 
-def main():
+ACIK_NCR = "SELECT COUNT(*) FROM uygunsuzluk WHERE durum='ACIK'"
+
+
+def kur(db_yolu):
     rnd = random.Random(7)
-    DB.parent.mkdir(exist_ok=True)
-    if DB.exists():
-        DB.unlink()
-    conn = baglan(str(DB))
+    yol = Path(db_yolu)
+    yol.parent.mkdir(parents=True, exist_ok=True)
+    if yol.exists():
+        yol.unlink()
+    conn = baglan(str(yol))
+    for kadi, ad, rol in KULLANICILAR:
+        kullanicilar.ekle(conn, kadi, ad, rol, "demo")
 
     for kod, ad, rev, malz, ks in PARCALAR:
         pid = conn.execute("INSERT INTO parca (kod, ad, revizyon, malzeme) VALUES (?,?,?,?)", (kod, ad, rev, malz)).lastrowid
@@ -145,7 +163,7 @@ def main():
                 adaylar = [a["id"] for a in conn.execute(
                     "SELECT id FROM alet WHERE tip = ? AND kalibrasyon_bitis >= ?", (k["alet_tipi"], gun))]
                 s = adim[k["ad"]]
-                deger = round(round(degeri_uret(rnd, k, e["_sira"], k["ad"]) / s) * s, 4)
+                deger = round(round(degeri_uret(rnd, k, e["_sira"], j, k["ad"]) / s) * s, 4)
                 olcumler.append({"karakteristik_id": k["id"], "deger": deger, "alet_id": rnd.choice(adaylar)})
             muayene_kaydet(conn, e["is_emri_no"], tur, rnd.choice(PERSONEL), olcumler, t.strftime("%Y-%m-%d %H:%M"))
             durum = conn.execute("SELECT durum FROM is_emri WHERE no = ?", (e["is_emri_no"],)).fetchone()[0]
@@ -159,16 +177,16 @@ def main():
                     (ie_id,)).fetchall():
                     kok, aksiyon, karar = rnd.choice(KOK_NEDEN.get(u["ad"], VARSAYILAN_NEDEN))
                     t += timedelta(hours=rnd.randint(3, 20))
-                    dof_kapat(conn, u["id"], kok, aksiyon, "Kalite: Zeynep Arslan", karar,
-                              rnd.randint(1, 3) if karar == "HURDA" else 0, t.strftime("%Y-%m-%d %H:%M"))
+                    dof_kapat(conn, u["id"], kok, aksiyon, rnd.choice(["Mehmet Kaya", "Emre Şahin", "Zeynep Arslan"]), karar,
+                              rnd.randint(1, 3) if karar == "HURDA" else 0, "Zeynep Arslan",
+                              t.strftime("%Y-%m-%d %H:%M"))
                 deneme += 1
                 if tur in ("FAI", "FINAL") and deneme < 4:
                     continue                             # aynı adımı tekrarla
             j += 1
             deneme = 0
-        if karantina:
-            # karantinadaki lotu kesin tolerans dışı bırak (demo hikâyesi)
-            if conn.execute("SELECT durum FROM is_emri WHERE no = ?", (e["is_emri_no"],)).fetchone()[0] != "KARANTINA":
+        # karantinadaki lotu kesin tolerans dışı bırak (demo hikâyesi)
+        if karantina and conn.execute("SELECT durum FROM is_emri WHERE no = ?", (e["is_emri_no"],)).fetchone()[0] != "KARANTINA":
                 t += timedelta(hours=3)
                 olcumler = []
                 for k in karakteristikler:
@@ -179,13 +197,30 @@ def main():
                     olcumler.append({"karakteristik_id": k["id"], "deger": round(deger, 3), "alet_id": aday})
                 muayene_kaydet(conn, e["is_emri_no"], "PROSES", "Emre Şahin", olcumler, t.strftime("%Y-%m-%d %H:%M"))
 
-    ozet = conn.execute("SELECT durum, COUNT(*) FROM is_emri GROUP BY durum").fetchall()
-    print("Veritabanı:", DB)
-    print("İş emirleri:", dict((r[0], r[1]) for r in ozet))
-    print("Muayene:", conn.execute("SELECT COUNT(*) FROM muayene").fetchone()[0],
-          "· Uygunsuzluk:", conn.execute("SELECT COUNT(*) FROM uygunsuzluk").fetchone()[0],
-          "(açık", conn.execute("SELECT COUNT(*) FROM uygunsuzluk WHERE durum='ACIK'").fetchone()[0], ")")
+    # Geçmiş olaylar ERP'ye çoktan gitmiş olsun; son birkaçı kuyrukta beklesin, biri hata vermiş olsun
+    son_id = conn.execute("SELECT MAX(id) FROM olay").fetchone()[0] or 0
+    with conn:
+        conn.execute("UPDATE olay SET durum='GONDERILDI', deneme=1, gonderilme=olusturma WHERE id <= ?", (son_id - 4,))
+        conn.execute("UPDATE olay SET durum='HATA', deneme=2, son_hata=? WHERE id = ?",
+                     ("<urlopen error timed out> (ERP 5 sn içinde yanıt vermedi)", son_id - 3))
+
+    ozet = dict(conn.execute("SELECT durum, COUNT(*) FROM is_emri GROUP BY durum").fetchall())
+    def sayi(sql):
+        return conn.execute(sql).fetchone()[0]
+
+    satirlar = [
+        f"Veritabanı: {yol}",
+        f"İş emirleri: {ozet}",
+        f"Muayene: {sayi('SELECT COUNT(*) FROM muayene')} · Uygunsuzluk: {sayi('SELECT COUNT(*) FROM uygunsuzluk')}"
+        f" (açık {sayi(ACIK_NCR)}) · Olay: {sayi('SELECT COUNT(*) FROM olay')}",
+        "Kullanıcılar (parola: demo): " + ", ".join(k[0] for k in KULLANICILAR),
+    ]
+    metin = "\n".join(satirlar)
+    conn.close()
+    return metin
 
 
 if __name__ == "__main__":
-    main()
+    from . import KOK
+
+    print(kur(KOK / "veri" / "kalitehat.db"))

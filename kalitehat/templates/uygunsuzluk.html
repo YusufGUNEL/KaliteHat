@@ -1,44 +1,67 @@
 {% extends "base.html" %}
+{% from "_makrolar.html" import etiket, lot with context %}
 {% block baslik %}NCR-{{ '%04d'|format(u.id) }}{% endblock %}
 {% block icerik %}
-<h1>NCR-{{ '%04d'|format(u.id) }} <span class="rozet r-{{ u.durum }}">{{ u.durum }}</span></h1>
-<p class="alt"><a href="{{ url_for('web.is_emri', no=u.ie_no) }}" class="mono">{{ u.ie_no }}</a> · lot <span class="mono">{{ u.lot }}</span> · {{ u.adet }} adet</p>
-
-<div class="kart">
-  <h2>Tespit</h2>
-  <p style="margin:0 0 6px">{{ u.aciklama }}</p>
-  <p class="alt" style="margin:0">{{ TUR_ADI[u.tur] }} muayenesinde {{ u.personel }} ölçtü · alet <span class="mono">{{ u.alet_kod }}</span> · {{ u.acilis }}</p>
+<div class="ust">
+  <div>
+    <div class="etiket-baslik">Uygunsuzluk raporu</div>
+    <h1 class="satir" style="gap:12px"><span class="mono">NCR-{{ '%04d'|format(u.id) }}</span> {{ etiket(u.durum, "açık" if u.durum == "ACIK" else "kapalı") }}</h1>
+    <div class="alt-baslik"><a href="{{ url_for('arayuz.is_emri', no=u.ie_no) }}" class="mono">{{ u.ie_no }}</a> · lot {{ lot(u.lot) }} · {{ u.adet }} adet</div>
+  </div>
+  <a class="btn ikincil" href="{{ url_for('arayuz.spc_grafik', kid=u.kid) }}">{{ u.kad }} · SPC grafiği</a>
 </div>
+
+<section class="pafta">
+  <header><h2>Tespit</h2><span class="not">{{ u.acilis }}</span></header>
+  <div class="govde">
+    <p style="margin:0 0 6px; font-size:15px">{{ u.aciklama }}</p>
+    <div class="ikincil">{{ TUR_ADI[u.tur] }} muayenesinde {{ u.personel }} ölçtü · alet <span class="mono">{{ u.alet_kod }}</span></div>
+  </div>
+</section>
+
+{% if gecmis %}
+<section class="pafta">
+  <header><h2>Bu karakteristikte daha önce</h2><span class="not">Aynı kök neden tekrar ediyorsa düzeltici faaliyet işe yaramamış demektir</span></header>
+  <table><tbody>
+  {% for h in gecmis %}<tr><td class="mono ikincil" style="width:150px">{{ h.kapanis }}</td><td>{{ h.kok_neden }}<div class="ikincil">{{ h.aksiyon }}</div></td><td>{{ KARAR_ADI[h.karar] }}</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+{% endif %}
 
 {% if u.durum == 'ACIK' %}
-{% if hata %}<div class="flash hata"><b>Kapatılmadı:</b> {{ hata }}</div>{% endif %}
-<form method="post" class="kart">
-  <h2>Düzeltici / önleyici faaliyet</h2>
-  <label>Kök neden</label>
-  <textarea name="kok_neden" placeholder="Örn. takım aşınması, yanlış ofset, bağlama hatası, malzeme">{{ form.get('kok_neden', '') }}</textarea>
-  <label>Düzeltici faaliyet</label>
-  <textarea name="aksiyon" placeholder="Tekrarı önlemek için ne yapıldı">{{ form.get('aksiyon', '') }}</textarea>
-  <div class="satir">
-    <div><label>Sorumlu</label><input name="sorumlu" value="{{ form.get('sorumlu', '') }}"></div>
-    <div><label>Ürün kararı</label>
-      <select name="karar">
-        <option value="">Seç</option>
-        {% for kod, ad in KARAR_ADI.items() %}<option value="{{ kod }}" {{ 'selected' if form.get('karar') == kod }}>{{ ad }}</option>{% endfor %}
-      </select></div>
-    <div><label>Hurda adedi</label><input name="hurda_adet" type="number" min="0" max="{{ u.adet - u.ie_hurda }}" value="{{ form.get('hurda_adet', '0') }}" style="width:90px"></div>
-  </div>
-  <div style="margin-top:16px"><button class="btn">DÖF'ü kapat</button></div>
-</form>
+  {% if yetkili('dof') %}
+  {% if hata %}<div class="bildirim hata" role="alert"><b>Kapatılmadı.</b> {{ hata }}</div>{% endif %}
+  <form method="post" class="pafta">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <header><h2>Düzeltici ve önleyici faaliyet</h2><span class="not">Kapatan: {{ kullanici.ad }}</span></header>
+    <div class="govde">
+      <div class="alan"><label for="kn">Kök neden</label>
+        <textarea id="kn" name="kok_neden" placeholder="Örn. takım aşınması, yanlış ofset, bağlama hatası, hammadde">{{ form.get('kok_neden', '') }}</textarea></div>
+      <div class="alan"><label for="ak">Düzeltici faaliyet · tekrarı nasıl önlüyoruz</label>
+        <textarea id="ak" name="aksiyon">{{ form.get('aksiyon', '') }}</textarea></div>
+      <div class="satir" style="align-items:flex-end">
+        <div><label for="so">Sorumlu</label><input id="so" name="sorumlu" value="{{ form.get('sorumlu', '') }}"></div>
+        <div><label for="ka">Ürün kararı</label>
+          <select id="ka" name="karar"><option value="">Seç</option>
+            {% for kod in KARARLAR %}<option value="{{ kod }}" {{ 'selected' if form.get('karar') == kod }}>{{ KARAR_ADI[kod] }}</option>{% endfor %}
+          </select></div>
+        <div><label for="hu">Hurda adedi</label><input id="hu" name="hurda_adet" type="number" min="0" max="{{ u.adet - u.ie_hurda }}" value="{{ form.get('hurda_adet', '0') }}" style="width:96px"></div>
+        <button class="btn">DÖF'ü kapat</button>
+      </div>
+    </div>
+  </form>
+  {% else %}
+  <div class="bildirim uyari">DÖF'ü kalite rolündeki bir kullanıcı kapatır.</div>
+  {% endif %}
 {% else %}
-<div class="kart">
-  <h2>Kapanış</h2>
-  <div class="bilgi" style="grid-template-columns: 1fr 1fr">
-    <div><span>Kök neden</span><b>{{ u.kok_neden }}</b></div>
-    <div><span>Düzeltici faaliyet</span><b>{{ u.aksiyon }}</b></div>
-    <div><span>Sorumlu</span><b>{{ u.sorumlu }}</b></div>
-    <div><span>Karar</span><b>{{ KARAR_ADI.get(u.karar) }}{% if u.hurda_adet %} · {{ u.hurda_adet }} adet hurda{% endif %}</b></div>
-    <div><span>Kapanış</span><b class="mono">{{ u.kapanis }}</b></div>
-  </div>
-</div>
+<section class="pafta">
+  <header><h2>Kapanış</h2><span class="not">{{ u.kapanis }}</span></header>
+  <table><tbody>
+    <tr><th style="width:180px">Kök neden</th><td>{{ u.kok_neden }}</td></tr>
+    <tr><th>Düzeltici faaliyet</th><td>{{ u.aksiyon }}</td></tr>
+    <tr><th>Sorumlu</th><td>{{ u.sorumlu }}</td></tr>
+    <tr><th>Karar</th><td>{{ KARAR_ADI.get(u.karar) }}{% if u.hurda_adet %} · {{ u.hurda_adet }} adet hurda{% endif %}</td></tr>
+  </tbody></table>
+</section>
 {% endif %}
 {% endblock %}

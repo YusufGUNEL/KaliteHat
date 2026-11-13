@@ -3,28 +3,51 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block baslik %}KaliteHat{% endblock %} · KaliteHat</title>
+<title>{% block baslik %}{% endblock %} · KaliteHat</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='7' width='14' height='2' fill='%2323262a'/%3E%3Crect x='1' y='4' width='1.5' height='8' fill='%2323262a'/%3E%3Crect x='13.5' y='4' width='1.5' height='8' fill='%2323262a'/%3E%3Ccircle cx='9' cy='8' r='2.5' fill='%232f5470'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="{{ url_for('static', filename='stil.css') }}">
 </head>
 <body>
 {% set ep = request.endpoint %}
-<header>
-  <a class="logo" href="{{ url_for('web.pano') }}">Kalite<span>Hat</span></a>
-  <nav>
-    <a href="{{ url_for('web.pano') }}" class="{{ 'aktif' if ep == 'web.pano' }}">Pano</a>
-    <a href="{{ url_for('web.is_emirleri') }}" class="{{ 'aktif' if ep in ('web.is_emirleri','web.is_emri','web.muayene') }}">İş emirleri</a>
-    <a href="{{ url_for('web.uygunsuzluklar') }}" class="{{ 'aktif' if ep in ('web.uygunsuzluklar','web.uygunsuzluk') }}">Uygunsuzluk / DÖF</a>
-    <a href="{{ url_for('web.parcalar') }}" class="{{ 'aktif' if ep == 'web.parcalar' }}">Kontrol planları</a>
-    <a href="{{ url_for('web.aletler') }}" class="{{ 'aktif' if ep == 'web.aletler' }}">Ölçüm aletleri</a>
-    <a href="{{ url_for('web.izlenebilirlik') }}" class="{{ 'aktif' if ep == 'web.izlenebilirlik' }}">İzlenebilirlik</a>
-  </nav>
-</header>
-<main>
-  {% for kat, mesaj in get_flashed_messages(with_categories=true) %}
-    <div class="flash {{ kat }}">{{ mesaj }}</div>
-  {% endfor %}
-  {% block icerik %}{% endblock %}
-</main>
+{% set n = nav_sayilari() %}
+<div class="iskelet">
+  <aside class="antet">
+    <a class="marka" href="{{ url_for('arayuz.pano') }}"><b>KaliteHat</b><span>kalite · ERP köprüsü</span></a>
+    <nav aria-label="Ana menü">
+      <a href="{{ url_for('arayuz.pano') }}" class="{{ 'aktif' if ep == 'arayuz.pano' }}">Pano</a>
+      <div class="grup">Üretim</div>
+      <a href="{{ url_for('arayuz.is_emirleri') }}" class="{{ 'aktif' if ep in ('arayuz.is_emirleri','arayuz.is_emri','arayuz.muayene_formu') }}">
+        İş emirleri {% if n.karantina %}<span class="say" title="karantinadaki lot">{{ n.karantina }}</span>{% endif %}</a>
+      <a href="{{ url_for('arayuz.uygunsuzluklar') }}" class="{{ 'aktif' if ep in ('arayuz.uygunsuzluklar','arayuz.uygunsuzluk') }}">
+        Uygunsuzluk · DÖF {% if n.acik_ncr %}<span class="say" title="açık">{{ n.acik_ncr }}</span>{% endif %}</a>
+      <div class="grup">Analiz</div>
+      <a href="{{ url_for('arayuz.spc_listesi') }}" class="{{ 'aktif' if ep in ('arayuz.spc_grafik','arayuz.spc_listesi') }}">SPC · kontrol grafiği</a>
+      <a href="{{ url_for('arayuz.izlenebilirlik') }}" class="{{ 'aktif' if ep == 'arayuz.izlenebilirlik' }}">İzlenebilirlik</a>
+      <div class="grup">Ana veri</div>
+      <a href="{{ url_for('arayuz.parcalar') }}" class="{{ 'aktif' if ep == 'arayuz.parcalar' }}">Kontrol planları</a>
+      <a href="{{ url_for('arayuz.aletler') }}" class="{{ 'aktif' if ep == 'arayuz.aletler' }}">
+        Ölçüm aletleri {% if n.kalibrasyon %}<span class="say" title="kalibrasyonu geçmiş">{{ n.kalibrasyon }}</span>{% endif %}</a>
+      <div class="grup">Entegrasyon</div>
+      <a href="{{ url_for('arayuz.entegrasyon') }}" class="{{ 'aktif' if ep == 'arayuz.entegrasyon' }}">
+        ERP olayları {% if n.olay %}<span class="say" title="gönderilmemiş">{{ n.olay }}</span>{% endif %}</a>
+      <a href="{{ url_for('arayuz.api_belgesi') }}" class="{{ 'aktif' if ep == 'arayuz.api_belgesi' }}">API belgesi</a>
+      <a href="{{ url_for('arayuz.denetim_izi') }}" class="{{ 'aktif' if ep == 'arayuz.denetim_izi' }}">Denetim izi</a>
+    </nav>
+    {% if kullanici %}
+    <div class="oturum">
+      <b>{{ kullanici.ad }}</b><span>{{ ROLLER[kullanici.rol] }}</span>
+      <form method="post" action="{{ url_for('arayuz.cikis') }}"><input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn ikincil kucuk">Çıkış</button></form>
+    </div>
+    {% endif %}
+  </aside>
+  <main class="icerik">
+    {% for kat, mesaj in get_flashed_messages(with_categories=true) %}
+      <div class="bildirim {{ kat }}" role="status">{{ mesaj }}</div>
+    {% endfor %}
+    {% block icerik %}{% endblock %}
+  </main>
+</div>
 {% block js %}{% endblock %}
 </body>
 </html>

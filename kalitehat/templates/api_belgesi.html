@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block baslik %}API belgesi{% endblock %}
+{% block icerik %}
+<div class="ust">
+  <div>
+    <h1>ERP API · v1</h1>
+    <div class="alt-baslik">{{ spec.info.description }}</div>
+  </div>
+  <a class="btn ikincil" href="{{ url_for('api.openapi') }}">openapi.json</a>
+</div>
+
+{% if api_anahtari_demo %}<div class="bildirim uyari">Demo API anahtarı kullanılıyor (<span class="mono">demo-api-anahtari</span>). Gerçek kurulumda <span class="mono">KALITEHAT_API_ANAHTARI</span> ortam değişkeni ile değiştirilir.</div>{% endif %}
+
+<section class="pafta">
+  <header><h2>Örnek: ERP iş emri gönderir, sonra kalite durumunu sorar</h2></header>
+  <div class="govde">
+<pre class="kod">curl -X POST {{ request.host_url }}api/v1/is-emirleri \
+  -H "X-API-Key: demo-api-anahtari" -H "Content-Type: application/json" \
+  -d '{"is_emri_no": "IE-2026-1080", "parca_kodu": "SN-50", "lot": "L261115-SN09", "adet": 40}'
+
+curl {{ request.host_url }}api/v1/is-emirleri/IE-2026-1080 -H "X-API-Key: demo-api-anahtari"
+# {"durum": "FAI_BEKLIYOR", "sevke_uygun": false, "acik_uygunsuzluk": 0, ...}
+
+curl "{{ request.host_url }}api/v1/olaylar?sonra=40" -H "X-API-Key: demo-api-anahtari"
+# {"veri": [{"olay_id": 41, "tur": "LOT_KARANTINAYA_ALINDI", ...}], "sonraki_imlec": 47}</pre>
+  </div>
+</section>
+
+{% for yol, yontemler in spec.paths.items() %}
+  {% for yontem, uc in yontemler.items() %}
+  <section class="pafta">
+    <header><h2><span class="etiket {{ 'e-BEKLIYOR' if yontem == 'get' else 'e-UYGUN' }}" style="margin-right:8px">{{ yontem|upper }}</span><span class="mono">/api/v1{{ yol }}</span></h2><span class="not">{{ uc.summary }}</span></header>
+    <div class="govde">
+      {% if uc.description %}<p style="margin:0 0 10px">{{ uc.description }}</p>{% endif %}
+      {% if uc.parameters %}
+      <table style="margin-bottom:10px"><thead><tr><th>Parametre</th><th>Yer</th><th>Tür</th></tr></thead><tbody>
+      {% for p in uc.parameters %}<tr><td class="mono">{{ p.name }}{{ ' *' if p.required }}</td><td>{{ p['in'] }}</td><td class="mono ikincil">{{ p.schema.type or p.schema['$ref'].split('/')[-1] }}{% if p.schema.default is defined %} = {{ p.schema.default }}{% endif %}</td></tr>{% endfor %}
+      </tbody></table>
+      {% endif %}
+      <div class="satir" style="gap:8px">{% for kod, yanit in uc.responses.items() %}<span class="etiket {{ 'e-UYGUN' if kod.startswith('2') else 'e-RED' }}">{{ kod }}</span><span class="ikincil" style="margin-right:10px">{{ yanit.description }}</span>{% endfor %}</div>
+    </div>
+  </section>
+  {% endfor %}
+{% endfor %}
+
+<section class="pafta">
+  <header><h2>Hata biçimi</h2><span class="not">Tüm uçlarda aynı</span></header>
+  <div class="govde"><pre class="kod">{"hata": {"kod": "YETKISIZ", "mesaj": "Geçerli bir X-API-Key başlığı gerekli."}}</pre></div>
+</section>
+{% endblock %}

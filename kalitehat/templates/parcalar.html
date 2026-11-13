@@ -1,20 +1,27 @@
 {% extends "base.html" %}
+{% from "_makrolar.html" import etiket with context %}
 {% block baslik %}Kontrol planları{% endblock %}
 {% block icerik %}
-<h1>Kontrol planları</h1>
-<p class="alt">Her parça için teknik resimden gelen ölçülecek karakteristikler. Muayene formu buradan oluşur.</p>
+<div class="ust">
+  <div>
+    <h1>Kontrol planları</h1>
+    <div class="alt-baslik">Teknik resimden gelen, her parçada ölçülecek karakteristikler. Muayene formu buradan oluşur.</div>
+  </div>
+</div>
 {% for p, ks in rows %}
-<div class="kart">
-  <h2><span class="mono">{{ p.kod }}</span> · {{ p.ad }} <span class="alt">· Rev. {{ p.revizyon }} · {{ p.malzeme }}</span></h2>
+<section class="pafta">
+  <header><h2><span class="mono">{{ p.kod }}</span> · {{ p.ad }}</h2><span class="not">Rev. {{ p.revizyon }} · {{ p.malzeme }}</span></header>
   <table>
-    <tr><th>#</th><th>Karakteristik</th><th class="sayi">Nominal / tolerans</th><th class="sayi">Alt sınır</th><th class="sayi">Üst sınır</th><th>Alet tipi</th><th></th></tr>
+    <thead><tr><th style="width:40px">#</th><th>Karakteristik</th><th class="sayi">Tolerans</th><th class="sayi">Alt sınır</th><th class="sayi">Üst sınır</th><th>Ölçüm aleti</th><th></th></tr></thead>
+    <tbody>
     {% for k in ks %}
-    <tr><td class="mono">{{ k.no }}</td><td>{{ k.ad }}</td><td class="sayi">{{ k|tol }} {{ k.birim }}</td>
+    <tr><td class="mono">{{ k.no }}</td><td>{{ k.ad }}</td><td class="sayi">{{ k|tol }} <span class="ikincil">{{ k.birim }}</span></td>
       <td class="sayi">{{ '%g'|format(k.nominal + k.alt_sapma) }}</td><td class="sayi">{{ '%g'|format(k.nominal + k.ust_sapma) }}</td>
       <td>{{ k.alet_tipi }}</td>
-      <td>{% if k.kritik %}<span class="rozet r-UYARI">kritik</span> <a href="{{ url_for('web.spc', kid=k.id) }}">SPC</a>{% endif %}</td></tr>
+      <td>{% if k.kritik %}<div class="satir" style="gap:8px">{{ etiket('KRITIK', 'kritik') }}<a href="{{ url_for('arayuz.spc_grafik', kid=k.id) }}">SPC</a></div>{% endif %}</td></tr>
     {% endfor %}
+    </tbody>
   </table>
-</div>
+</section>
 {% endfor %}
 {% endblock %}

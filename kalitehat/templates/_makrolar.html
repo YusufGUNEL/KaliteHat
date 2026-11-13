@@ -1,0 +1,20 @@
+{% macro etiket(kod, metin=None) -%}
+<span class="etiket e-{{ kod }}">{{ metin or kod }}</span>
+{%- endmacro %}
+
+{% macro durum(kod) -%}{{ etiket(kod, DURUM_ADI.get(kod, kod)) }}{%- endmacro %}
+
+{% macro lot(no) -%}<span class="lot">{{ no }}</span>{%- endmacro %}
+
+{# İmza öğesi: ölçümün tolerans bandındaki yeri #}
+{% macro cetvel(deger, k, genis=False) -%}
+{%- set p = deger|konum(k) -%}
+<span class="cetvel{{ ' genis' if genis }}{{ ' disarida' if p < 0 or p > 100 else (' sinirda' if p < 15 or p > 85) }}"
+      title="Tolerans bandının %{{ '%.0f'|format(p) }} noktasında" aria-label="Tolerans bandının yüzde {{ '%.0f'|format(p) }} noktası">
+  <i class="uc sol"></i><i class="uc sag"></i><i class="im" style="left: {{ '%.1f'|format([[p, -4]|max, 104]|min) }}%"></i>
+</span>
+{%- endmacro %}
+
+{% macro cpk_cubugu(cpk) -%}
+<span class="cubuk {{ 'zayif' if cpk < 1 else ('sinirda' if cpk < 1.33) }}"><i style="width: {{ '%.0f'|format([[cpk / 2 * 100, 0]|max, 100]|min) }}%"></i></span>
+{%- endmacro %}

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giriş · KaliteHat</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='stil.css') }}">
+</head>
+<body>
+<main class="giris-sayfa">
+  <div class="giris-kart">
+    <div class="marka"><b>KaliteHat</b><span>kalite · ERP köprüsü</span></div>
+    <form method="post" class="pafta">
+      <header><h2>Oturum aç</h2><span class="not">Kayıtlarda "kim yaptı" bu hesaptan gelir</span></header>
+      <div class="govde">
+        {% if hata %}<div class="bildirim hata">{{ hata }}</div>{% endif %}
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div class="alan"><label for="ka">Kullanıcı adı</label><input id="ka" name="kullanici_adi" autocomplete="username" required autofocus style="width:100%"></div>
+        <div class="alan"><label for="pa">Parola</label><input id="pa" type="password" name="parola" autocomplete="current-password" required style="width:100%"></div>
+        <button class="btn" style="width:100%; justify-content:center">Giriş</button>
+      </div>
+    </form>
+    {% if kullanici_listesi %}
+    <div class="demo-hesaplar">
+      <div class="etiket-baslik" style="margin-bottom:6px">Demo hesapları · parola <span class="mono">demo</span></div>
+      {% for k in kullanici_listesi %}
+        <div><button type="button" onclick="document.getElementById('ka').value='{{ k.kullanici_adi }}';document.getElementById('pa').value='demo';">{{ k.kullanici_adi }}</button>
+          — {{ k.ad }}, {{ ROLLER[k.rol] }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</main>
+</body>
+</html>

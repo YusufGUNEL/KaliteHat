@@ -1,45 +1,104 @@
 {% extends "base.html" %}
+{% from "_makrolar.html" import lot, cpk_cubugu with context %}
 {% block baslik %}SPC · {{ k.ad }}{% endblock %}
 {% block icerik %}
-<h1>{{ k.parca_kod }} · {{ k.ad }}</h1>
-<p class="alt">{{ k.parca_ad }} · <span class="mono">{{ k|tol }} {{ k.birim }}</span> · {{ k.alet_tipi }} ile ölçülür</p>
-
-<div class="izgara i4">
-  <div class="kart kpi"><div class="deger">{{ y.n if y else rows|length }}</div><div class="etiket">Ölçüm</div></div>
-  <div class="kart kpi"><div class="deger mono">{{ '%.4f'|format(y.ort) if y else '–' }}</div><div class="etiket">Ortalama · nominal {{ '%g'|format(k.nominal) }}</div></div>
-  <div class="kart kpi"><div class="deger">{{ '%.2f'|format(y.cp) if y else '–' }}</div><div class="etiket">Cp · tolerans / proses yayılımı</div></div>
-  <div class="kart kpi"><div class="deger {{ 'kirmizi' if y and y.cpk < 1.33 }}">{{ '%.2f'|format(y.cpk) if y else '–' }}</div><div class="etiket">Cpk · merkezlenme dahil</div></div>
+<div class="ust">
+  <div>
+    <div class="etiket-baslik">Kontrol grafiği · I-MR</div>
+    <h1>{{ k.parca_kod }} · {{ k.ad }}</h1>
+    <div class="alt-baslik">{{ k.parca_ad }} · <span class="mono">{{ k|tol }} {{ k.birim }}</span> · {{ k.alet_tipi }} ile ölçülür</div>
+  </div>
+  <form class="satir" style="gap:6px" onchange="location = this.querySelector('select').value">
+    <label for="kar" style="margin:0">Karakteristik</label>
+    <select id="kar">{% for t in tum %}<option value="{{ url_for('arayuz.spc_grafik', kid=t.id) }}" {{ 'selected' if t.id == k.id }}>{{ t.kod }} · {{ t.ad }}</option>{% endfor %}</select>
+  </form>
 </div>
 
-<div class="kart">
-  <h2>Kontrol grafiği (tekil değerler)</h2>
-  {% if y %}<canvas id="grafik" height="110"></canvas>
-  <p class="alt" style="margin:10px 0 0">Kesik çizgiler: tolerans sınırları. Noktalı çizgiler: ortalama ± 3σ (prosesin doğal yayılımı).
-    {% if y.cp - y.cpk > 0.3 %}<b>Cp ile Cpk arasındaki fark büyük: proses merkezden kaymış, ofset ayarı ilk bakılacak yer.</b>{% endif %}</p>
-  {% else %}<p class="alt">Grafik için en az 2 farklı ölçüm gerekiyor.</p>{% endif %}
+{% if y and sinir %}
+<div class="yan-olcu" style="margin:0 0 16px">
+  <span><b>{{ y.n }}</b>ölçüm</span>
+  <span><b>{{ '%.4f'|format(y.ort) }}</b>ortalama (nominal {{ '%g'|format(k.nominal) }})</span>
+  <span title="Kısa dönem, σ = MR̄/1,128"><b>{{ y.cp|ondalik }} / {{ y.cpk|ondalik }}</b>Cp / Cpk</span>
+  <span title="Uzun dönem, tüm verinin standart sapması"><b>{{ y.pp|ondalik if y.pp is not none else '–' }} / {{ y.ppk|ondalik if y.ppk is not none else '–' }}</b>Pp / Ppk</span>
+  <span><b>{{ ihlaller|length }}</b>kural ihlali</span>
 </div>
+
+{% set yorum = [] %}
+{% if y.cp - y.cpk > 0.4 %}{% set _ = yorum.append("Cp ile Cpk arasındaki fark büyük: yayılım tolerans için yeterli ama proses merkezde değil. Önce ofset ayarına bakılır.") %}{% endif %}
+{% if y.ppk is not none and y.cpk - y.ppk > 0.3 %}{% set _ = yorum.append("Cpk (kısa dönem) ile Ppk (uzun dönem) arasındaki fark büyük: proses zamanla kayıyor. Takım aşınması ya da ısınma gibi zamana bağlı bir neden aranır.") %}{% endif %}
+{% if yorum %}
+<section class="pafta"><header><h2>Yorum</h2></header><div class="govde">{% for s in yorum %}<p style="margin:0 0 6px">{{ s }}</p>{% endfor %}</div></section>
+{% endif %}
+
+<section class="pafta">
+  <header><h2>Tekil değerler (I)</h2><span class="not">Kontrol sınırları ilk {{ sinir.referans_n }} ölçümden (referans dönem) hesaplandı</span></header>
+  <div class="govde" style="height:340px"><canvas id="i-grafik" aria-label="Tekil değerler kontrol grafiği"></canvas></div>
+</section>
+<section class="pafta">
+  <header><h2>Hareketli aralık (MR)</h2><span class="not">Ardışık iki ölçüm arasındaki fark; ani sıçramaları gösterir</span></header>
+  <div class="govde" style="height:180px"><canvas id="mr-grafik" aria-label="Hareketli aralık grafiği"></canvas></div>
+</section>
+
+<section class="pafta">
+  <header><h2>Kural ihlalleri</h2><span class="not">Western Electric / Nelson kuralları 1–3</span></header>
+  {% if ihlaller %}
+  <table>
+    <thead><tr><th class="sayi" style="width:60px">#</th><th>Kural</th><th>Lot</th><th>Tarih</th><th class="sayi">Değer</th></tr></thead>
+    <tbody>
+    {% for i in ihlaller|reverse %}{% set r = rows[i.indeks] %}
+    <tr><td class="sayi">{{ i.indeks + 1 }}</td><td>{{ i.aciklama }}</td><td>{{ lot(r.lot) }}</td><td class="mono ikincil">{{ r.tarih }}</td>
+      <td class="sayi {{ 'red-hucre' if not r.uygun }}">{{ '%g'|format(r.deger) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="bos">Kural ihlali yok; proses istatistiksel olarak kontrol altında.</div>{% endif %}
+</section>
+{% else %}
+<section class="pafta"><div class="bos">Grafik için en az 2 farklı ölçüm gerekiyor.</div></section>
+{% endif %}
 {% endblock %}
 {% block js %}
-{% if y %}
+{% if y and sinir %}
 <script src="{{ url_for('static', filename='chart.umd.min.js') }}"></script>
 <script>
+Chart.defaults.font.family = '"Plex", "Segoe UI", sans-serif';
+Chart.defaults.color = '#555b62';
 const v = {{ rows|map(attribute='deger')|list|tojson }};
-const etiket = {{ rows|map(attribute='lot')|list|tojson }};
-const n = v.length, cizgi = (d, c, dash) => ({ type: 'line', data: Array(n).fill(d), borderColor: c, borderDash: dash, pointRadius: 0, borderWidth: 1.5 });
-new Chart(document.getElementById('grafik'), {
-  data: {
-    labels: etiket,
-    datasets: [
-      { type: 'line', label: 'Ölçüm', data: v, borderColor: '#1d2320', borderWidth: 1, tension: 0,
-        pointBackgroundColor: v.map(x => (x < {{ alt }} - 1e-9 || x > {{ ust }} + 1e-9) ? '#b3261e' : '#1f5f4a'), pointRadius: 3 },
-      Object.assign(cizgi({{ ust }}, '#b3261e', [6, 4]), { label: 'Üst tolerans' }),
-      Object.assign(cizgi({{ alt }}, '#b3261e', [6, 4]), { label: 'Alt tolerans' }),
-      Object.assign(cizgi({{ y.ort + 3 * y.s }}, '#24508f', [2, 3]), { label: 'Ort + 3σ' }),
-      Object.assign(cizgi({{ y.ort - 3 * y.s }}, '#24508f', [2, 3]), { label: 'Ort − 3σ' }),
-      Object.assign(cizgi({{ y.ort }}, '#66706a', []), { label: 'Ortalama' })
-    ]
-  },
-  options: { plugins: { legend: { position: 'bottom' } }, scales: { x: { ticks: { maxTicksLimit: 12 } } } }
+const lotlar = {{ rows|map(attribute='lot')|list|tojson }};
+const tarih = {{ rows|map(attribute='tarih')|list|tojson }};
+const ihlal = new Set({{ ihlaller|map(attribute='indeks')|list|tojson }});
+const ALT = {{ alt }}, UST = {{ ust }}, ORT = {{ sinir.ort }}, UCL = {{ sinir.ucl }}, LCL = {{ sinir.lcl }}, REF = {{ sinir.referans_n }};
+const n = v.length, etiket = v.map((_, i) => i + 1);
+const yatay = (d, renk, kesik, ad) => ({ type: 'line', label: ad, data: Array(n).fill(d), borderColor: renk, borderDash: kesik, borderWidth: 1.25, pointRadius: 0, pointHitRadius: 0 });
+const ipucu = { callbacks: { title: it => `#${it[0].dataIndex + 1} · ${lotlar[it[0].dataIndex]} · ${tarih[it[0].dataIndex]}` } };
+const referansBolgesi = { id: 'ref', beforeDraw(c) { const x = c.scales.x, a = c.chartArea; if (REF >= n) return;
+  const x1 = x.getPixelForValue(REF - 1) + (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2;
+  c.ctx.save(); c.ctx.fillStyle = 'rgba(47,84,112,.05)'; c.ctx.fillRect(a.left, a.top, x1 - a.left, a.bottom - a.top);
+  c.ctx.fillStyle = '#868b90'; c.ctx.font = '11px Plex, sans-serif'; c.ctx.fillText('referans dönem', a.left + 6, a.top + 14); c.ctx.restore(); } };
+new Chart(document.getElementById('i-grafik'), {
+  plugins: [referansBolgesi],
+  data: { labels: etiket, datasets: [
+    { type: 'line', label: 'Ölçüm', data: v, borderColor: '#23262a', borderWidth: 1, tension: 0,
+      pointRadius: v.map((x, i) => ihlal.has(i) || x < ALT || x > UST ? 4.5 : 2.5),
+      pointBackgroundColor: v.map((x, i) => (x < ALT - 1e-9 || x > UST + 1e-9) ? '#b42318' : (ihlal.has(i) ? '#d9a400' : '#23262a')),
+      pointBorderColor: v.map((x, i) => (x < ALT - 1e-9 || x > UST + 1e-9) ? '#b42318' : (ihlal.has(i) ? '#8a5a00' : '#23262a')) },
+    yatay(UST, '#b42318', [], 'Tolerans (ÜSL / ASL)'), yatay(ALT, '#b42318', [], ''),
+    yatay(UCL, '#2f5470', [5, 4], 'Kontrol sınırı (±3σ)'), yatay(LCL, '#2f5470', [5, 4], ''),
+    yatay(ORT, '#868b90', [2, 3], 'Merkez çizgi'),
+  ] },
+  options: { maintainAspectRatio: false, animation: false,
+    plugins: { tooltip: ipucu, legend: { position: 'bottom', labels: { boxWidth: 14, boxHeight: 1, filter: i => i.text } } },
+    scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 14 } }, y: { grid: { color: 'rgba(35,38,42,.07)' }, border: { display: false } } } }
+});
+const mr = [null, ...{{ sinir.mr|tojson }}];
+new Chart(document.getElementById('mr-grafik'), {
+  data: { labels: etiket, datasets: [
+    { type: 'line', label: 'MR', data: mr, borderColor: '#23262a', borderWidth: 1, pointRadius: 2, pointBackgroundColor: mr.map(x => x > {{ sinir.mr_ucl }} ? '#b42318' : '#23262a') },
+    yatay({{ sinir.mr_ucl }}, '#2f5470', [5, 4], 'Üst kontrol sınırı'), yatay({{ sinir.mr_ort }}, '#868b90', [2, 3], 'MR̄'),
+  ] },
+  options: { maintainAspectRatio: false, animation: false,
+    plugins: { tooltip: ipucu, legend: { position: 'bottom', labels: { boxWidth: 14, boxHeight: 1 } } },
+    scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 14 } }, y: { beginAtZero: true, grid: { color: 'rgba(35,38,42,.07)' }, border: { display: false } } } }
 });
 </script>
 {% endif %}

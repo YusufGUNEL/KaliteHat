@@ -1,63 +1,149 @@
-import pytest
+"""HTTP katmanı: API sözleşmesi, oturum, CSRF, roller ve uçtan uca akış."""
+import io
 
-from kalitehat import create_app
-from kalitehat.db import baglan
+from conftest import csrf_al, giris_yap
+from openpyxl import load_workbook
 
-
-@pytest.fixture
-def client(tmp_path):
-    yol = str(tmp_path / "t.db")
-    c = baglan(yol)
-    c.execute("INSERT INTO parca (id, kod, ad, revizyon, malzeme) VALUES (1, 'P-100', 'Pim', 'A', '1.2842')")
-    c.execute("INSERT INTO karakteristik (parca_id, no, ad, nominal, alt_sapma, ust_sapma, birim, alet_tipi, kritik)"
-              " VALUES (1, 1, 'Çap', 12.0, 0.0, 0.018, 'mm', 'Mikrometre', 1)")
-    c.execute("INSERT INTO alet (id, kod, ad, tip, kalibrasyon_bitis) VALUES (1, 'MK-01', 'Mik', 'Mikrometre', '2099-01-01')")
-    c.execute("INSERT INTO alet (id, kod, ad, tip, kalibrasyon_bitis) VALUES (2, 'MK-02', 'Eski', 'Mikrometre', '2020-01-01')")
-    c.commit()
-    c.close()
-    app = create_app(yol)
-    app.testing = True
-    return app.test_client()
+API = {"X-API-Key": "test-anahtar"}
 
 
-def test_api_ile_is_emri_al_ve_kalite_oku(client):
-    r = client.post("/api/is-emirleri", json=[{"is_emri_no": "IE-1", "parca_kodu": "P-100", "lot": "L1", "adet": 10},
-                                              {"is_emri_no": "IE-2", "parca_kodu": "YOK", "lot": "L2", "adet": 5}])
+# ---------- API ----------
+
+def test_api_anahtarsiz_reddedilir(client):
+    r = client.get("/api/v1/is-emirleri")
+    assert r.status_code == 401 and r.json["hata"]["kod"] == "YETKISIZ"
+    assert client.get("/api/v1/is-emirleri", headers={"X-API-Key": "yanlis"}).status_code == 401
+    assert client.get("/api/v1/openapi.json").status_code == 200  # sözleşme açık
+
+
+def test_api_is_emri_al_listele_ve_kalite_oku(client):
+    r = client.post("/api/v1/is-emirleri", headers=API,
+                    json=[{"is_emri_no": "IE-10", "parca_kodu": "P-100", "lot": "L10", "adet": 10},
+                          {"is_emri_no": "IE-11", "parca_kodu": "YOK", "lot": "L11", "adet": 5}])
     assert r.status_code == 201
-    assert r.json["eklenen"] == ["IE-1"] and r.json["atlanan"][0]["is_emri_no"] == "IE-2"
+    assert r.json["eklenen"] == ["IE-10"] and r.json["atlanan"][0]["is_emri_no"] == "IE-11"
 
-    r = client.get("/api/is-emirleri/IE-1/kalite")
+    # aynı istek tekrar: çift kayıt yok, 200
+    r = client.post("/api/v1/is-emirleri", headers=API,
+                    json={"is_emri_no": "IE-10", "parca_kodu": "P-100", "lot": "L10", "adet": 10})
+    assert r.status_code == 200 and r.json["eklenen"] == []
+
+    r = client.get("/api/v1/is-emirleri/IE-10", headers=API)
     assert r.json["durum"] == "FAI_BEKLIYOR" and r.json["sevke_uygun"] is False
 
-    assert client.get("/api/is-emirleri/YOK/kalite").status_code == 404
-    assert client.post("/api/is-emirleri", data="bozuk", content_type="application/json").status_code == 400
+    r = client.get("/api/v1/is-emirleri?boyut=1&sayfa=2", headers=API)
+    assert r.json["sayfalama"] == {"sayfa": 2, "boyut": 1, "toplam": 2, "sayfa_sayisi": 2}
+    assert len(r.json["veri"]) == 1
+
+    assert client.get("/api/v1/is-emirleri/YOK", headers=API).json["hata"]["kod"] == "BULUNAMADI"
+    assert client.post("/api/v1/is-emirleri", headers=API, data="bozuk",
+                       content_type="application/json").status_code == 400
+    assert client.get("/api/v1/is-emirleri?sayfa=x", headers=API).status_code == 400
 
 
-def test_form_akisi_ve_sayfalar(client):
-    client.post("/api/is-emirleri", json={"is_emri_no": "IE-1", "parca_kodu": "P-100", "lot": "L1", "adet": 10})
+# ---------- oturum ve güvenlik ----------
 
-    r = client.post("/is-emri/IE-1/muayene/FAI", data={"deger_1": "12,01", "alet_1": "2", "personel": "Ali"})
+def test_girissiz_yonlendirilir_ve_yanlis_parola(client):
+    r = client.get("/")
+    assert r.status_code == 302 and "/giris" in r.headers["Location"]
+    jeton = csrf_al(client)
+    r = client.post("/giris", data={"kullanici_adi": "kal", "parola": "yanlis", "csrf": jeton})
+    assert "yanlış" in r.get_data(as_text=True)
+
+
+def test_csrf_jetonu_olmadan_post_reddedilir(client):
+    giris_yap(client)
+    r = client.post("/is-emri/IE-1/muayene/FAI", data={"deger_1": "12.01"})
+    assert r.status_code == 400
+
+
+def test_acik_yonlendirme_engellenir(client):
+    jeton = csrf_al(client)
+    r = client.post("/giris?sonra=//kotu.example", data={"kullanici_adi": "kal", "parola": "demo", "csrf": jeton})
+    assert r.headers["Location"] == "/"
+
+
+def test_operator_dof_kapatamaz(client):
+    jeton = giris_yap(client, "op")
+    client.post("/is-emri/IE-1/muayene/FAI",
+                data={"deger_1": "12,05", "alet_1": "1", "deger_2": "40", "alet_2": "2", "csrf": jeton})
+    r = client.post("/uygunsuzluk/1", data={"kok_neden": "a", "aksiyon": "b", "sorumlu": "c",
+                                            "karar": "YENIDEN_ISLEME", "csrf": jeton})
+    assert r.status_code == 403
+
+
+# ---------- uçtan uca ----------
+
+def test_uctan_uca_akis_ve_tum_sayfalar(client):
+    jeton = giris_yap(client, "kal")
+
+    r = client.post("/is-emri/IE-1/muayene/FAI",
+                    data={"deger_1": "12,01", "alet_1": "3", "deger_2": "40", "alet_2": "2", "csrf": jeton})
     assert "kalibrasyonu" in r.get_data(as_text=True)
 
-    r = client.post("/is-emri/IE-1/muayene/FAI", data={"deger_1": "12,03", "alet_1": "1", "personel": "Ali"})
+    r = client.post("/is-emri/IE-1/muayene/FAI",
+                    data={"deger_1": "12,03", "alet_1": "1", "deger_2": "40", "alet_2": "2", "csrf": jeton})
     assert r.status_code == 302
-    assert client.get("/api/is-emirleri/IE-1/kalite").json["durum"] == "KARANTINA"
+    assert client.get("/api/v1/is-emirleri/IE-1", headers=API).json["durum"] == "KARANTINA"
 
     r = client.post("/uygunsuzluk/1", data={"kok_neden": "Ofset", "aksiyon": "Düzeltildi", "sorumlu": "Veli",
-                                            "karar": "YENIDEN_ISLEME"})
+                                            "karar": "YENIDEN_ISLEME", "csrf": jeton})
     assert r.status_code == 302
 
-    for yol in ["/", "/is-emirleri", "/is-emirleri?durum=KARANTINA", "/is-emri/IE-1", "/is-emri/IE-1/muayene/FAI",
-                "/uygunsuzluklar", "/uygunsuzluk/1", "/parcalar", "/aletler", "/spc/1", "/izlenebilirlik?q=L1",
-                "/api/kalite-durumlari"]:
+    r = client.post("/is-emri/IE-1/muayene/FAI",
+                    data={"deger_1": "12,009", "alet_1": "1", "deger_2": "40", "alet_2": "2", "csrf": jeton})
+    r = client.get("/is-emri/IE-1/fai.xlsx")
+    assert r.status_code == 200
+    ws = load_workbook(io.BytesIO(r.data)).active
+    assert "FAI" in ws["A1"].value
+    assert (ws["A11"].value, ws["B11"].value) == ("Muayene eden", "Kalite Kişisi")
+    assert ws["B12"].value == "KABUL"
+
+    denetim = client.get("/denetim").get_data(as_text=True)
+    assert "Kalite Kişisi" in denetim and "DOF_KAPATILDI" in denetim
+
+    for yol in ["/", "/is-emirleri", "/is-emirleri?durum=KARANTINA", "/is-emri/IE-1", "/is-emri/IE-1/muayene/PROSES",
+                "/uygunsuzluklar", "/uygunsuzluk/1", "/parcalar", "/aletler", "/spc/1",
+                "/izlenebilirlik?q=L-1", "/entegrasyon", "/api-belgesi", "/denetim"]:
         assert client.get(yol).status_code == 200, yol
     assert client.get("/is-emri/YOK").status_code == 404
+    assert client.get("/spc").headers["Location"].endswith("/spc/1")
 
 
-def test_csv_yukleme(client):
-    import io
+def test_csv_yukleme_ve_rol(client):
+    jeton = giris_yap(client, "op")
+    veri = b"is_emri_no;parca_kodu;lot;adet\nIE-5;P-100;L5;7\n"
+    r = client.post("/is-emirleri/ice-aktar", data={"dosya": (io.BytesIO(veri), "a.csv"), "csrf": jeton},
+                    content_type="multipart/form-data", follow_redirects=True)
+    assert "yetkiniz yok" in r.get_data(as_text=True)
 
-    veri = "is_emri_no;parca_kodu;lot;adet\nIE-5;P-100;L5;7\n".encode("utf-8")
-    r = client.post("/is-emirleri/ice-aktar", data={"dosya": (io.BytesIO(veri), "a.csv")},
+    client.post("/cikis", data={"csrf": jeton})
+    jeton = giris_yap(client, "kal")
+    r = client.post("/is-emirleri/ice-aktar", data={"dosya": (io.BytesIO(veri), "a.csv"), "csrf": jeton},
                     content_type="multipart/form-data", follow_redirects=True)
     assert "1 iş emri alındı" in r.get_data(as_text=True)
+
+
+def test_olaylar_demo_erpye_gider_ve_tekrar_islenmez(client, app):
+    jeton = giris_yap(client, "yon")
+    client.post("/is-emri/IE-1/muayene/FAI",
+                data={"deger_1": "12,01", "alet_1": "1", "deger_2": "40", "alet_2": "2", "csrf": jeton})
+
+    # webhook'u test istemcisine yönlendir (gerçek HTTP yerine)
+    from kalitehat import olaylar
+    from kalitehat.db import baglan
+
+    def test_gonderici(url, govde, anahtar, api):
+        r = client.post("/demo-erp/webhook", json=govde, headers={"Idempotency-Key": anahtar, "X-API-Key": api})
+        assert r.status_code == 200
+
+    conn = baglan(app.config["DB"])
+    assert olaylar.gonder_bekleyenler(conn, "x", test_gonderici, api_anahtari="test-anahtar")["gonderilen"] == 1
+    olaylar.yeniden_kuyruga_al(conn, 1)  # VAZGECILDI/HATA değil → değişmez
+    conn.execute("UPDATE olay SET durum='HATA', sonraki_deneme='2000-01-01 00:00'")
+    conn.commit()
+    olaylar.gonder_bekleyenler(conn, "x", test_gonderici, api_anahtari="test-anahtar")  # aynı olay ikinci kez
+    assert conn.execute("SELECT COUNT(*) FROM demo_erp_kutusu").fetchone()[0] == 1
+
+    assert client.post("/demo-erp/webhook", json={"tur": "x"}).status_code == 401
+    assert "FAI_ONAYLANDI" in client.get("/entegrasyon").get_data(as_text=True)
