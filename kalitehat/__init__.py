@@ -25,6 +25,8 @@ def create_app(ayarlar=None):
     )
     if ayarlar:
         app.config.update(ayarlar)
+    if not app.config["DEMO_ERP"] and app.config["API_ANAHTARI"] == "demo-api-anahtari":
+        raise RuntimeError("Demo modu kapalıyken KALITEHAT_API_ANAHTARI tanımlanmalı.")
 
     @app.teardown_appcontext
     def baglantiyi_kapat(_):

@@ -61,6 +61,22 @@ def test_acik_yonlendirme_engellenir(client):
     jeton = csrf_al(client)
     r = client.post("/giris?sonra=//kotu.example", data={"kullanici_adi": "kal", "parola": "demo", "csrf": jeton})
     assert r.headers["Location"] == "/"
+    jeton = csrf_al(client)
+    r = client.post("/giris?sonra=/%5Ckotu.example", data={"kullanici_adi": "kal", "parola": "demo", "csrf": jeton})
+    assert r.headers["Location"] == "/"
+
+
+def test_fai_raporunda_erp_verisi_formul_olmaz(client, app):
+    from kalitehat.db import baglan
+
+    conn = baglan(app.config["DB"])
+    conn.execute("UPDATE is_emri SET lot = '=HYPERLINK(\"http://x\")' WHERE no = 'IE-1'")
+    conn.commit()
+    jeton = giris_yap(client, "kal")
+    client.post("/is-emri/IE-1/muayene/FAI",
+                data={"deger_1": "12,01", "alet_1": "1", "deger_2": "40", "alet_2": "2", "csrf": jeton})
+    ws = load_workbook(io.BytesIO(client.get("/is-emri/IE-1/fai.xlsx").data)).active
+    assert ws["B9"].data_type == "s"
 
 
 def test_operator_dof_kapatamaz(client):

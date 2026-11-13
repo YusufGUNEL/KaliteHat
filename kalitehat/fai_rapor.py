@@ -13,6 +13,14 @@ BASLIK_DOLGU = PatternFill("solid", fgColor="E8EBE6")
 RED_DOLGU = PatternFill("solid", fgColor="F8D7D3")
 
 
+def _yaz(ws, satir, sutun, deger):
+    """Hücreye yazar; '=' ile başlayan metin formül olarak değil düz metin olarak kalır (ERP'den gelen veri)."""
+    c = ws.cell(satir, sutun, deger)
+    if isinstance(deger, str) and deger.startswith("="):
+        c.data_type = "s"
+    return c
+
+
 def olustur(conn, is_emri_no):
     ie = conn.execute(
         "SELECT ie.*, p.kod parca_kod, p.ad parca_ad, p.revizyon, p.malzeme FROM is_emri ie "
@@ -47,7 +55,7 @@ def olustur(conn, is_emri_no):
     ]
     for i, (etiket, deger) in enumerate(bilgiler, start=4):
         ws.cell(i, 1, etiket).font = Font(bold=True)
-        ws.cell(i, 2, deger)
+        _yaz(ws, i, 2, deger)
 
     basliklar = ["Kar. no", "Karakteristik", "Nominal", "Alt sapma", "Üst sapma", "Alt sınır", "Üst sınır",
                  "Birim", "Ölçülen", "Sonuç", "Ölçüm aleti", "Alet kal. bitişi", "Kritik"]
@@ -62,7 +70,7 @@ def olustur(conn, is_emri_no):
                     r["deger"], "UYGUN" if r["uygun"] else "RED", f"{r['alet_kod']} {r['alet_ad']}",
                     r["kalibrasyon_bitis"], "Evet" if r["kritik"] else ""]
         for j, d in enumerate(degerler, start=1):
-            c = ws.cell(i, j, d)
+            c = _yaz(ws, i, j, d)
             c.border = CERCEVE
             if not r["uygun"]:
                 c.fill = RED_DOLGU

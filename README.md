@@ -86,7 +86,7 @@ Gerçek bir ERP adresi tanımlıyken (`KALITEHAT_ERP_WEBHOOK`) bekleyen olaylar�
 | `KALITEHAT_GIZLI_ANAHTAR` | rastgele | Oturum imzalama anahtarı (üretimde sabit verilmeli) |
 | `KALITEHAT_API_ANAHTARI` | `demo-api-anahtari` | ERP'nin kullandığı API anahtarı |
 | `KALITEHAT_ERP_WEBHOOK` | demo ERP | Olayların gönderileceği adres |
-| `KALITEHAT_DEMO_ERP` | `1` | `0` ise demo ERP alıcısı ve giriş ekranındaki demo kullanıcı listesi kapanır |
+| `KALITEHAT_DEMO_ERP` | `1` | `0` ise demo ERP alıcısı ve giriş ekranındaki demo kullanıcı listesi kapanır; bu durumda `KALITEHAT_API_ANAHTARI` zorunludur |
 
 ## Proje yapısı
 

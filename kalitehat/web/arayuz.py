@@ -85,7 +85,8 @@ def giris():
             session["kid"] = k["id"]
             session["csrf"] = secrets.token_urlsafe(32)
             sonra = request.args.get("sonra", "")
-            return redirect(sonra if sonra.startswith("/") and not sonra.startswith("//") else url_for(".pano"))
+            guvenli = sonra.startswith("/") and not sonra.startswith("//") and "\\" not in sonra
+            return redirect(sonra if guvenli else url_for(".pano"))
         hata = "Kullanıcı adı ya da parola yanlış."
     kullanici_listesi = []
     if current_app.config["DEMO_ERP"]:  # demo kurulumunda hesapları göster; üretimde gösterilmez
