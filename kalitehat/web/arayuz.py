@@ -427,8 +427,9 @@ def olay_yeniden(oid):
 
 @bp.get("/api-belgesi")
 def api_belgesi():
-    return render_template("api_belgesi.html", spec=SPEC, api_anahtari_demo=current_app.config["API_ANAHTARI"]
-                           == "demo-api-anahtari")
+    demo = current_app.config["API_ANAHTARI"] == "demo-api-anahtari"
+    return render_template("api_belgesi.html", spec=SPEC, api_anahtari_demo=demo,
+                           ornek_anahtar="demo-api-anahtari" if demo else "<API-ANAHTARI>")
 
 
 @bp.get("/denetim")

@@ -7,3 +7,5 @@ services:
     envVars:
       - key: KALITEHAT_GIZLI_ANAHTAR
         generateValue: true
+      - key: KALITEHAT_API_ANAHTARI
+        generateValue: true

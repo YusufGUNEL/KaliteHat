@@ -15,13 +15,13 @@
   <header><h2>Örnek: ERP iş emri gönderir, sonra kalite durumunu sorar</h2></header>
   <div class="govde">
 <pre class="kod">curl -X POST {{ request.host_url }}api/v1/is-emirleri \
-  -H "X-API-Key: demo-api-anahtari" -H "Content-Type: application/json" \
+  -H "X-API-Key: {{ ornek_anahtar }}" -H "Content-Type: application/json" \
   -d '{"is_emri_no": "IE-2026-1080", "parca_kodu": "SN-50", "lot": "L261115-SN09", "adet": 40}'
 
-curl {{ request.host_url }}api/v1/is-emirleri/IE-2026-1080 -H "X-API-Key: demo-api-anahtari"
+curl {{ request.host_url }}api/v1/is-emirleri/IE-2026-1080 -H "X-API-Key: {{ ornek_anahtar }}"
 # {"durum": "FAI_BEKLIYOR", "sevke_uygun": false, "acik_uygunsuzluk": 0, ...}
 
-curl "{{ request.host_url }}api/v1/olaylar?sonra=40" -H "X-API-Key: demo-api-anahtari"
+curl "{{ request.host_url }}api/v1/olaylar?sonra=40" -H "X-API-Key: {{ ornek_anahtar }}"
 # {"veri": [{"olay_id": 41, "tur": "LOT_KARANTINAYA_ALINDI", ...}], "sonraki_imlec": 47}</pre>
   </div>
 </section>
