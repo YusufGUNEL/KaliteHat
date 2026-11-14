@@ -46,7 +46,7 @@ p { text-wrap: pretty; }
 :focus-visible { outline: 2px solid var(--celik); outline-offset: 2px; }
 
 /* ---------- iskelet: antet sütunu + içerik ---------- */
-.iskelet { display: grid; grid-template-columns: 228px 1fr; min-height: 100vh; }
+.iskelet { display: grid; grid-template-columns: 228px minmax(0, 1fr); min-height: 100vh; }
 .antet { border-right: 1px solid var(--cizgi-guclu); padding: 20px 0 16px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
 .marka { padding: 0 20px 20px; border-bottom: 1px solid var(--cizgi); margin-bottom: 8px; text-decoration: none; color: var(--grafit); display: block; }
 .marka b { font-size: 17px; font-weight: 600; letter-spacing: -.2px; display: block; }
@@ -72,7 +72,7 @@ p { text-wrap: pretty; }
 
 /* ---------- yüzeyler ---------- */
 .pafta { background: var(--pafta); border: 1px solid var(--cizgi); border-radius: var(--r); margin-bottom: 20px; }
-.pafta > header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--cizgi); }
+.pafta > header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; padding: 12px 16px; border-bottom: 1px solid var(--cizgi); }
 .pafta > header h2 { font-size: 14px; font-weight: 600; }
 .pafta > header .not { color: var(--silik); font-size: 12px; }
 .pafta > .govde { padding: 16px; }
@@ -206,13 +206,43 @@ label { display: block; font: 500 12px var(--sans); color: var(--kursun); margin
 pre.kod { background: #22262a; color: #dfe3e6; padding: 12px 14px; border-radius: var(--r); overflow-x: auto; font: 12px/1.6 var(--mono); margin: 0; }
 details summary { cursor: pointer; }
 
-@media (max-width: 1100px) { .iki { grid-template-columns: 1fr; } .kunye { grid-template-columns: repeat(2, 1fr); } }
+/* ---------- demo turu ---------- */
+.demo-tur { border: 1px solid var(--celik); border-radius: var(--r); background: var(--celik-acik); margin-bottom: 20px; }
+.demo-tur-ust { display: flex; align-items: center; gap: 14px; padding: 8px 8px 8px 14px; border-bottom: 1px solid rgba(47,84,112,.2); }
+.demo-tur-ust > b { font: 600 11px var(--sans); text-transform: uppercase; letter-spacing: .6px; color: var(--celik); white-space: nowrap; }
+.demo-tur ol { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; flex: 1; overflow-x: auto; scrollbar-width: none; }
+.demo-tur ol::-webkit-scrollbar { display: none; }
+.demo-tur ol a { display: flex; align-items: center; gap: 6px; padding: 4px 9px 4px 5px; border-radius: 2px; color: var(--kursun); text-decoration: none; font-size: 13px; white-space: nowrap; }
+.demo-tur ol a:hover { color: var(--grafit); background: rgba(47,84,112,.08); }
+.demo-tur ol a span { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--celik); color: var(--celik); display: grid; place-items: center; font: 500 11px var(--mono); }
+.demo-tur ol a.gecti span { background: var(--celik); color: #fff; }
+.demo-tur ol a.simdi { color: var(--grafit); font-weight: 500; background: var(--pafta); box-shadow: inset 0 0 0 1px rgba(47,84,112,.35); }
+.demo-tur ol a.simdi span { background: var(--celik); color: #fff; }
+.demo-tur-kapat { all: unset; cursor: pointer; margin-left: auto; width: 26px; height: 26px; display: grid; place-items: center; font-size: 18px; color: var(--kursun); border-radius: 2px; flex: none; }
+.demo-tur-kapat:hover { background: rgba(47,84,112,.1); color: var(--grafit); }
+.demo-tur-kapat:focus-visible, .demo-tur-ac:focus-visible { outline: 2px solid var(--celik); outline-offset: 2px; }
+.demo-tur-alt { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 10px 14px; flex-wrap: wrap; }
+.demo-tur-alt p { margin: 0; color: var(--grafit); font-size: 13px; }
+.demo-tur[hidden], .demo-tur-ac[hidden] { display: none; }
+.demo-tur-ac { all: unset; cursor: pointer; float: right; margin: -12px 0 8px 12px; font: 500 12px var(--sans); color: var(--celik); border: 1px solid var(--celik); border-radius: 2px; padding: 3px 9px; background: var(--celik-acik); }
+
+@media (max-width: 1100px) { .iki { grid-template-columns: minmax(0, 1fr); } .kunye { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 860px) {
-  .iskelet { grid-template-columns: 1fr; }
-  .antet { position: static; height: auto; flex-direction: row; flex-wrap: wrap; padding: 12px 16px; align-items: center; }
-  .antet nav { display: flex; flex-wrap: wrap; } .antet .grup { display: none; } .antet nav a { padding: 6px 10px; border-left: 0; }
-  .marka { border: 0; padding: 0 12px 0 0; margin: 0; } .oturum { border: 0; padding: 0; }
+  .iskelet { grid-template-columns: minmax(0, 1fr); }
+  /* telefonda: üstte marka + oturum, altında yana kayan tek satır menü */
+  .antet { position: static; height: auto; flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 12px 16px 0; border-right: 0; border-bottom: 1px solid var(--cizgi-guclu); }
+  .antet nav { order: 3; flex: 1 0 100%; display: flex; flex-wrap: nowrap; overflow-x: auto; margin: 10px -16px 0; padding: 0 8px; scrollbar-width: none; }
+  .antet nav::-webkit-scrollbar { display: none; }
+  .antet .grup { display: none; }
+  .antet nav a { flex: none; gap: 4px; padding: 8px 10px 9px; border-left: 0; border-bottom: 2px solid transparent; white-space: nowrap; }
+  .antet nav a.aktif { border-bottom-color: var(--celik); background: transparent; }
+  .marka { border: 0; padding: 0; margin: 0; }
+  .oturum { border: 0; padding: 0; display: flex; align-items: center; gap: 10px; }
+  .oturum b { font-size: 12px; } .oturum span { display: none; } .oturum form { margin: 0; }
   .icerik { padding: 20px 16px 40px; }
+  .pafta > table, .pafta > .govde > table, .pafta > form > table { display: block; overflow-x: auto; }
+  .ust h1 { font-size: 21px; }
+  .demo-tur-ust { flex-wrap: wrap; } .demo-tur ol { order: 3; flex: 1 0 100%; }
   .akis-seridi { grid-template-columns: repeat(2, 1fr); } .akis-seridi a::after { display: none; }
   .dikkat li { grid-template-columns: 1fr; gap: 4px; }
 }

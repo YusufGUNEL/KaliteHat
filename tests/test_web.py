@@ -163,3 +163,15 @@ def test_olaylar_demo_erpye_gider_ve_tekrar_islenmez(client, app):
 
     assert client.post("/demo-erp/webhook", json={"tur": "x"}).status_code == 401
     assert "FAI_ONAYLANDI" in client.get("/entegrasyon").get_data(as_text=True)
+
+
+def test_demo_turu_son_uygunsuzluga_goturur(client, app):
+    jeton = giris_yap(client, "kal")
+    client.post("/is-emri/IE-1/muayene/FAI",
+                data={"deger_1": "12,05", "alet_1": "1", "deger_2": "40", "alet_2": "2", "csrf": jeton})
+    sayfa = client.get("/").get_data(as_text=True)
+    assert "Demo turu" in sayfa and 'href="/is-emri/IE-1"' in sayfa and 'href="/uygunsuzluk/1"' in sayfa
+    assert "Karantinadaki lot" in client.get("/is-emri/IE-1").get_data(as_text=True)
+
+    app.config["DEMO_ERP"] = False
+    assert "Demo turu" not in client.get("/").get_data(as_text=True)

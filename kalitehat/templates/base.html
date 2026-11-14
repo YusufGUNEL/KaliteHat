@@ -42,12 +42,44 @@
     {% endif %}
   </aside>
   <main class="icerik">
+    {% set tur = demo_turu() %}
+    {% if tur %}
+    {% set i = tur.simdi if tur.simdi is not none else -1 %}
+    <section class="demo-tur" id="tur" aria-label="Demo turu">
+      <div class="demo-tur-ust">
+        <b>Demo turu</b>
+        <ol>
+          {% for ad, _, url, _ in tur.adimlar %}
+          <li><a href="{{ url }}" class="{{ 'simdi' if loop.index0 == i }}{{ ' gecti' if loop.index0 < i }}"><span>{{ loop.index }}</span>{{ ad }}</a></li>
+          {% endfor %}
+        </ol>
+        <button type="button" class="demo-tur-kapat" aria-label="Turu gizle" title="Turu gizle">×</button>
+      </div>
+      {% set aktif = tur.adimlar[i] if i >= 0 else none %}
+      {% set sonraki = tur.adimlar[i + 1] if i + 1 < tur.adimlar|length else none %}
+      <div class="demo-tur-alt">
+        <p>{% if aktif %}{{ aktif[1] }}{% else %}Kalite kontrol + ERP köprüsü örneği. Veriler kurgusaldır; 5 adımda hikâyeyi gösterir.{% endif %}</p>
+        {% if sonraki %}<a class="btn kucuk" href="{{ sonraki[2] }}">{{ 'Başla' if i < 0 else 'Sonraki' }}: {{ sonraki[0] }} →</a>{% endif %}
+      </div>
+    </section>
+    <button type="button" class="demo-tur-ac" id="tur-ac" hidden>Demo turu</button>
+    {% endif %}
     {% for kat, mesaj in get_flashed_messages(with_categories=true) %}
       <div class="bildirim {{ kat }}" role="status">{{ mesaj }}</div>
     {% endfor %}
     {% block icerik %}{% endblock %}
   </main>
 </div>
+<script>
+(function () {
+  var tur = document.getElementById('tur'), ac = document.getElementById('tur-ac');
+  if (!tur) return;
+  function ayarla(gizli) { tur.hidden = gizli; ac.hidden = !gizli; try { localStorage.setItem('tur-gizli', gizli ? '1' : '0'); } catch (e) {} }
+  try { if (localStorage.getItem('tur-gizli') === '1') { tur.hidden = true; ac.hidden = false; } } catch (e) {}
+  tur.querySelector('.demo-tur-kapat').addEventListener('click', function () { ayarla(true); });
+  ac.addEventListener('click', function () { ayarla(false); });
+})();
+</script>
 {% block js %}{% endblock %}
 </body>
 </html>

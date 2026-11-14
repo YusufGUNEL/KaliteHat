@@ -50,7 +50,35 @@ def sabitler():
         }
 
     return {"DURUM_ADI": DURUM_ADI, "KARAR_ADI": KARAR_ADI, "TUR_ADI": TUR_ADI, "OLAY_DURUM_ADI": OLAY_DURUM_ADI,
-            "OLAY_TURLERI": olaylar.TURLER, "bugun": bugun(), "nav_sayilari": nav_sayilari}
+            "OLAY_TURLERI": olaylar.TURLER, "bugun": bugun(), "nav_sayilari": nav_sayilari, "demo_turu": demo_turu}
+
+
+def demo_turu():
+    """Demo modunda ekranın üstündeki tur: projeyi ilk kez açan kişiye hikâyeyi sırayla gösterir.
+
+    Hikâye son uygunsuzluk üzerinden kurulur (açık olan önce): karantinadaki lot, nedeni olan
+    karakteristiğin SPC grafiği, DÖF kaydı. Demo dışı kurulumda tur gösterilmez.
+    """
+    if not current_app.config["DEMO_ERP"] or request.endpoint == "arayuz.giris":
+        return None
+    ncr = db().execute(
+        "SELECT u.id, ie.no, o.karakteristik_id kid FROM uygunsuzluk u JOIN is_emri ie ON ie.id = u.is_emri_id "
+        "JOIN olcum o ON o.id = u.olcum_id ORDER BY u.durum = 'ACIK' DESC, u.id DESC LIMIT 1"
+    ).fetchone()
+    adimlar = [
+        ("Pano", "Lot akışı ve bugün dikkat isteyen işler tek ekranda.", url_for(".pano"), {"arayuz.pano"}),
+        ("Karantinadaki lot", "Tolerans dışı ölçüm otomatik uygunsuzluk açtı; lot karantinada, ERP'ye bildirildi.",
+         url_for(".is_emri", no=ncr["no"]) if ncr else url_for(".is_emirleri"), {"arayuz.is_emri", "arayuz.is_emirleri"}),
+        ("SPC grafiği", "Sarı noktalar erken uyarı: takım aşınmasını parça tolerans dışına çıkmadan önce gösterdi.",
+         url_for(".spc_grafik", kid=ncr["kid"]) if ncr else url_for(".spc_listesi"), {"arayuz.spc_grafik"}),
+        ("DÖF", "Kök neden, faaliyet ve ürün kararı girilir; son DÖF kapanınca lot karantinadan çıkar.",
+         url_for(".uygunsuzluk", nid=ncr["id"]) if ncr else url_for(".uygunsuzluklar"),
+         {"arayuz.uygunsuzluk", "arayuz.uygunsuzluklar"}),
+        ("ERP olayları", "Her kalite kararı kuyruktan ERP'ye gider. 'Bekleyenleri şimdi gönder' ile deneyin.",
+         url_for(".entegrasyon"), {"arayuz.entegrasyon", "arayuz.api_belgesi"}),
+    ]
+    simdi_ = next((i for i, a in enumerate(adimlar) if request.endpoint in a[3]), None)
+    return {"adimlar": adimlar, "simdi": simdi_}
 
 
 @bp.app_template_filter("tol")

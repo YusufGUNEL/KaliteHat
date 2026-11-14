@@ -124,6 +124,10 @@ ruff check .
 | **ERP olayları** | **API belgesi** |
 | ![Entegrasyon](docs/ekranlar/entegrasyon.png) | ![API](docs/ekranlar/api.png) |
 
+Telefonda da çalışır; demo modunda her ekranın üstünde 5 adımlık bir tur hikâyeyi sırayla gösterir.
+
+<img src="docs/ekranlar/telefon.png" alt="Telefon görünümü" width="300">
+
 ## Lisans
 
 MIT. Arayüz yazı tipi IBM Plex (SIL Open Font License, `kalitehat/static/fontlar/OFL.txt`), grafikler Chart.js (MIT).
