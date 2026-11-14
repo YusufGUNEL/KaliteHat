@@ -12,4 +12,4 @@ USER kalitehat
 
 EXPOSE 5050
 # Veritabanı yoksa demo verisini kurar. Tek süreç + iş parçacıkları: SQLite tek yazıcıyla çalışır.
-CMD ["sh", "-c", "[ -f veri/kalitehat.db ] || python -m kalitehat.ornek_veri; exec gunicorn -b 0.0.0.0:5050 -w 1 --threads 4 'kalitehat:create_app()'"]
+CMD ["sh", "-c", "[ -f veri/kalitehat.db ] || python -m kalitehat.ornek_veri; exec gunicorn -b 0.0.0.0:${PORT:-5050} -w 1 --threads 4 'kalitehat:create_app()'"]

@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: kalitehat
+    runtime: docker
+    plan: free
+    healthCheckPath: /giris
+    envVars:
+      - key: KALITEHAT_GIZLI_ANAHTAR
+        generateValue: true
