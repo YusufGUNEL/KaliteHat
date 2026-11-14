@@ -58,11 +58,11 @@ ALETLER = [
 PERSONEL = ["Mehmet Kaya", "Ayşe Demir", "Emre Şahin"]
 # kullanıcı adı, ad, rol — demo parolası hepsi için "demo"
 KULLANICILAR = [
-    ("mehmet", "Mehmet Kaya", "OPERATOR"),
-    ("ayse", "Ayşe Demir", "OPERATOR"),
-    ("emre", "Emre Şahin", "OPERATOR"),
-    ("zeynep", "Zeynep Arslan", "KALITE"),
-    ("selin", "Selin Aydın", "YONETICI"),
+    ("yonetici", "Selin Aydın", "YONETICI"),
+    ("kalite", "Zeynep Arslan", "KALITE"),
+    ("operator1", "Mehmet Kaya", "OPERATOR"),
+    ("operator2", "Ayşe Demir", "OPERATOR"),
+    ("operator3", "Emre Şahin", "OPERATOR"),
 ]
 
 # (karakteristik adı -> olası (kök neden, aksiyon, karar))

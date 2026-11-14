@@ -4,7 +4,7 @@ CNC talaşlı imalat atölyesi için **kalite kontrol + ERP köprüsü**. İş e
 
 AS9100 / ISO 9001 ortamında bir kalite biriminin günlük işini (ilk parça onayı, kalibrasyon kontrolü, DÖF, izlenebilirlik, SPC) ve bunun ERP ile konuşmasını tek uygulamada gösteren bir örnek projedir. Veriler tamamen kurgusaldır.
 
-**▶ Canlı demo: [kalitehat.onrender.com](https://kalitehat.onrender.com)** · kullanıcı `selin`, parola `demo`. Ücretsiz sunucu uykudaysa ilk açılış 30-50 saniye sürebilir; veri her yeniden başlatmada sıfırlanır.
+**▶ Canlı demo: [kalitehat.onrender.com](https://kalitehat.onrender.com)** · kullanıcı `yonetici`, parola `demo`. Ücretsiz sunucu uykudaysa ilk açılış 30-50 saniye sürebilir; veri her yeniden başlatmada sıfırlanır.
 
 ![Kalite panosu](docs/ekranlar/pano.png)
 
@@ -36,9 +36,9 @@ python calistir.py          # ilk çalıştırmada demo verisini kurar
 
 | Kullanıcı | Rol |
 |---|---|
-| `mehmet`, `ayse`, `emre` | Operatör |
-| `zeynep` | Kalite |
-| `selin` | Yönetici |
+| `yonetici` | Yönetici (her şeyi görür, demo için önerilen) |
+| `kalite` | Kalite |
+| `operator1`, `operator2`, `operator3` | Operatör |
 
 Demo verisini sıfırlamak: `python -m kalitehat.ornek_veri`
 
